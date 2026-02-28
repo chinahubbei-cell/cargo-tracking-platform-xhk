@@ -1,0 +1,202 @@
+/* 运输节点信息 - 统一时间线样式 */
+.transport-nodes {
+    margin-top: 16px;
+    padding: 12px 12px 4px;
+    background: #fafafa;
+    border-radius: 8px;
+}
+
+.transport-nodes-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    color: #999;
+}
+
+.transport-nodes-loading-text {
+    margin-left: 8px;
+    color: #999;
+}
+
+.transport-nodes-empty {
+    padding: 16px;
+    text-align: center;
+}
+
+.transport-nodes-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 14px;
+    font-size: 18px;
+    /* Increased from 14px */
+    font-weight: 600;
+    color: #333;
+}
+
+.transport-nodes-icon {
+    margin-right: 6px;
+    font-size: 19px;
+    /* Increased from 15px */
+}
+
+.transport-nodes-title {
+    margin-right: 4px;
+}
+
+.transport-nodes-count {
+    color: #999;
+    font-weight: 400;
+    font-size: 15px;
+    /* Increased from 13px */
+}
+
+/* 时间线容器 */
+.transport-nodes-timeline {
+    display: flex;
+    flex-direction: column;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 4px;
+    padding-bottom: 4px;
+}
+
+.transport-nodes-timeline::-webkit-scrollbar {
+    width: 6px;
+}
+
+.transport-nodes-timeline::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.transport-nodes-timeline::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.transport-nodes-timeline::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* 时间线节点 */
+.timeline-item {
+    display: flex;
+    align-items: flex-start;
+    min-height: 60px;
+}
+
+.timeline-item .timeline-content {
+    cursor: pointer;
+}
+
+.timeline-item.active .timeline-content,
+.timeline-item.selected .timeline-content {
+    background: #e6f7ff;
+    border-color: #91d5ff;
+}
+
+/* 左侧图标列 */
+.timeline-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 36px;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.timeline-dot {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+    font-size: 15px;
+}
+
+.timeline-dot.stop {
+    background: #f0e6ff;
+    border: 2px solid #b37feb;
+}
+
+.timeline-dot.city {
+    background: #e6fffb;
+    border: 2px solid #36cfc9;
+}
+
+.timeline-dot.active {
+    background: #e6f7ff;
+    border-color: #1890ff;
+    box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.15);
+}
+
+.dot-icon {
+    font-size: 14px;
+    line-height: 1;
+}
+
+/* 脉动动画 */
+.dot-pulse {
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    border-radius: 50%;
+    border: 2px solid #1890ff;
+    animation: pulse-ring 1.5s ease-out infinite;
+}
+
+@keyframes pulse-ring {
+    0% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+
+    100% {
+        transform: scale(1.4);
+        opacity: 0;
+    }
+}
+
+/* 连接线 */
+.timeline-line {
+    width: 2px;
+    flex: 1;
+    min-height: 16px;
+    background: #e8e8e8;
+}
+
+/* 右侧内容 */
+.timeline-content {
+    flex: 1;
+    margin-left: 10px;
+    padding: 8px 12px;
+    background: #fff;
+    border-radius: 6px;
+    border: 1px solid #f0f0f0;
+    margin-bottom: 8px;
+    transition: all 0.2s;
+}
+
+.timeline-content:hover {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.timeline-desc {
+    font-size: 17px;
+    color: #333;
+    line-height: 1.6;
+    word-break: break-all;
+}
+
+.timeline-time {
+    font-size: 14px;
+    color: #888;
+    margin-top: 6px;
+}

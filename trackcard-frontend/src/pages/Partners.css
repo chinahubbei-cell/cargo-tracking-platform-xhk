@@ -1,0 +1,37 @@
+.partners-page {
+    padding: 24px;
+    background: #f0f2f5;
+    min-height: 100%;
+}
+
+.partners-page .ant-card {
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.partners-page .ant-card-head-title {
+    font-weight: 600;
+}
+
+.partners-page .ant-table-thead>tr>th {
+    background: #fafafa;
+    font-weight: 600;
+}
+
+.partners-page .ant-table-row:hover {
+    background: #f5f5f5;
+}
+
+.partners-page .ant-rate-star {
+    margin-right: 4px;
+}
+
+.partners-page .ant-statistic-title {
+    color: #666;
+    font-size: 14px;
+}
+
+.partners-page .ant-statistic-content {
+    font-size: 26px;
+    font-weight: 600;
+}

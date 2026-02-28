@@ -1,0 +1,163 @@
+.shipmentId {
+    font-weight: 500;
+    color: #2563eb;
+    cursor: pointer;
+}
+
+.settingIcon {
+    font-size: 18px;
+    color: #6b7280;
+}
+
+.actionButton {
+    padding: 4px;
+}
+
+.searchConfig {
+    width: 200px;
+}
+
+.filterSelect {
+    width: 110px;
+}
+
+.orgSelect {
+    width: 180px;
+}
+
+.paginationContainer {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.emptyContainer {
+    padding: 40px;
+    text-align: center;
+    color: #999;
+}
+
+.emptyTitle {
+    font-size: 18px;
+    margin-bottom: 8px;
+}
+
+.emptyDesc {
+    font-size: 14px;
+}
+
+.modalStyle {
+    max-width: 1200px;
+    min-width: 800px;
+}
+
+.modalBody {
+    max-height: 70vh;
+    overflow-y: auto;
+    padding: 12px 20px;
+}
+
+.sectionDivider {
+    font-size: 14px;
+    margin: 4px 0 12px 0;
+    font-weight: 500;
+}
+
+.routeDivider {
+    color: #52c41a;
+}
+
+.transportDivider {
+    color: #1890ff;
+    margin: 8px 0 12px 0;
+}
+
+.cargoDivider {
+    color: #722ed1;
+    margin: 8px 0 12px 0;
+}
+
+.costDivider {
+    color: #faad14;
+    margin: 8px 0 12px 0;
+}
+
+.formItem {
+    margin-bottom: 8px;
+}
+
+.fullWidth {
+    width: 100%;
+}
+
+.locationLabel {
+    margin-bottom: 4px;
+    color: rgba(0, 0, 0, 0.85);
+    font-size: 15px;
+}
+
+.locationValue {
+    height: 32px;
+    line-height: 32px;
+    font-size: 15px;
+    padding: 0 11px;
+    border-radius: 6px;
+}
+
+.originValue {
+    color: #1890ff;
+    background: #f0f5ff;
+    border: 1px solid #d6e4ff;
+}
+
+.destValue {
+    color: #52c41a;
+    background: #f6ffed;
+    border: 1px solid #b7eb8f;
+}
+
+.previewArrowCol {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 28px;
+}
+
+.arrowIcon {
+    font-size: 18px;
+    color: #52c41a;
+}
+
+.arrowIconLarge {
+    font-size: 20px;
+    color: #52c41a;
+}
+
+.centerAlign {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.paddingTop24 {
+    padding-top: 24px;
+}
+
+.cardHead {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.deviceId {
+    font-family: monospace;
+}
+
+.deliverModalContent {
+    margin-top: 16px;
+}
+
+.deliverModalLabel {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 500;
+}

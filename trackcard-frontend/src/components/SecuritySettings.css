@@ -1,0 +1,135 @@
+/* 账户安全设置样式 */
+
+.security-config {
+    max-width: 800px;
+}
+
+.security-title {
+    margin-bottom: 24px;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.security-card {
+    margin-bottom: 16px;
+}
+
+.security-card.danger-zone {
+    border-color: #ffccc7;
+}
+
+/* 表单项 */
+.form-item {
+    margin-bottom: 12px;
+}
+
+/* 密码强度指示器 */
+.password-strength {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 8px 0;
+}
+
+.strength-bars {
+    display: flex;
+    gap: 4px;
+}
+
+.strength-bar {
+    width: 40px;
+    height: 4px;
+    background-color: #e8e8e8;
+    border-radius: 2px;
+    transition: background-color 0.3s;
+}
+
+.strength-bar.active {
+    /* 颜色由inline style控制 */
+}
+
+.strength-text {
+    font-size: 13px;
+}
+
+/* 设置行 */
+.setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.setting-row.last {
+    margin-bottom: 0;
+}
+
+/* 会话卡片 */
+.session-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.session-item:last-child {
+    border-bottom: none;
+}
+
+.session-info {
+    flex: 1;
+}
+
+.session-device {
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+}
+
+.current-tag {
+    margin-left: 8px;
+}
+
+.session-meta {
+    font-size: 13px;
+    color: #666;
+    margin-top: 4px;
+}
+
+/* 登录记录表格 */
+.login-history-table {
+    width: 100%;
+    font-size: 14px;
+    border-collapse: collapse;
+}
+
+.login-history-table th,
+.login-history-table td {
+    padding: 8px 4px;
+    text-align: left;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.login-history-table th {
+    font-weight: 500;
+    color: #666;
+}
+
+.login-history-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* 加载和空状态 */
+.loading-container {
+    display: flex;
+    justify-content: center;
+    padding: 24px;
+}
+
+.empty-text {
+    color: #999;
+    text-align: center;
+    padding: 16px;
+}

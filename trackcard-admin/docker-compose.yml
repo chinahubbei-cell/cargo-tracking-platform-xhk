@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  admin-server:
+    build: ./admin-server
+    container_name: trackcard-admin-server
+    ports:
+      - "8001:8001"
+    environment:
+      - DB_PATH=/data/trackcard-server.db
+      - ADMIN_PORT=8001
+    volumes:
+      - ../trackcard-server/trackcard.db:/data/trackcard-server.db
+    restart: unless-stopped
+
+  admin-frontend:
+    build: ./admin-frontend
+    container_name: trackcard-admin-frontend
+    ports:
+      - "5175:80"
+    depends_on:
+      - admin-server
+    restart: unless-stopped

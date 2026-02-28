@@ -1,0 +1,50 @@
+package main
+
+import (
+	"fmt"
+	"trackcard-server/services"
+
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+)
+
+func main() {
+	db, err := gorm.Open(sqlite.Open("trackcard.db"), &gorm.Config{})
+	if err != nil {
+		panic(err)
+	}
+
+	// Manual setup since Init might do more than DB
+	planner := services.NewRoutePlannerService(db)
+
+	origin := "贵州省铜仁市碧江区聚智南路科技孵化中心a栋"
+	dest := "Jarwal Road, NH330B, Jarwal, Kaiserganj, Bahraich, Uttar Pradesh, 271904, India"
+
+	fmt.Printf("Testing Route Planning for Air...\n")
+	fmt.Printf("Origin: %s\n", origin)
+	fmt.Printf("Dest: %s\n", dest)
+
+	req := services.CalculateRouteRequest{
+		Origin:        origin,
+		Destination:   dest,
+		TransportMode: "air",
+		Currency:      "CNY",
+		WeightKG:      100,
+	}
+
+	resp, err := planner.CalculateRoutes(req)
+
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+	} else if resp != nil {
+		fmt.Printf("Found %d routes\n", len(resp.Routes))
+		for _, r := range resp.Routes {
+			fmt.Printf("Route Type: %s\n", r.Type)
+			for _, seg := range r.Segments {
+				fmt.Printf("  Seg: %s -> %s [Mode: %s]\n", seg.From, seg.To, seg.Mode)
+			}
+		}
+	} else {
+		fmt.Printf("Resp is nil\n")
+	}
+}

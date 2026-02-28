@@ -1,0 +1,62 @@
+
+# Valid .gitignore content is existing content + new rules
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.DS_Store
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs
+*.njsproj
+*.sln
+*.sw?
+
+# Go
+trackcard-server/server
+trackcard-server/tmp
+
+# Database and sensitive data
+*.db
+*.db-shm
+*.db-wal
+
+# Backups and scripts
+backups/
+*.tar.gz
+*.exp
+
+# Agent
+.agent/
+
+# Go compiled binaries
+trackcard-server/trackcard-server
+trackcard-server/trackcard-server.bak
+trackcard-server/server_linux
+trackcard-server/server_test
+trackcard-server/test_build
+trackcard-server/tmp_check
+trackcard-server/main
+trackcard-admin/admin-server/admin-server
+
+# Database backups
+*.db.backup-*
+*.db.corrupted
+
+# Large data files
+trackcard-server/scripts/data_import/data_sources/*.csv
+
+# Build/deploy scripts output
+*.json.bak
+search_response.json
+route_response.json
+stages_response.json
+shipments_export.sql

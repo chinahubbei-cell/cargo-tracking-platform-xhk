@@ -1,0 +1,63 @@
+/* 预警中心页面样式 */
+
+/* 操作按钮 */
+.action-icon {
+    font-size: 18px;
+    color: #6b7280;
+}
+
+.action-button {
+    padding: 4px;
+}
+
+/* 运单号链接 */
+.shipment-link {
+    color: #1890ff;
+    cursor: pointer;
+}
+
+.shipment-link:hover {
+    color: #40a9ff;
+    text-decoration: underline;
+}
+
+/* 预警详情弹窗 */
+.alert-detail {
+    /* 容器 */
+}
+
+.alert-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.alert-detail-item {
+    /* 单项 */
+}
+
+.alert-detail-label {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.alert-detail-value {
+    font-weight: 500;
+}
+
+.alert-detail-section {
+    margin-bottom: 16px;
+}
+
+.alert-detail-title {
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.alert-detail-message {
+    background: #f5f5f5;
+    padding: 12px;
+    border-radius: 4px;
+}

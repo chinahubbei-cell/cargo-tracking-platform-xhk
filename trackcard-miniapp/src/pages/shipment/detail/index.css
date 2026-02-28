@@ -1,0 +1,373 @@
+.detail-container {
+    padding: 16px;
+    background-color: #f5f5f5;
+    min-height: 100vh;
+    padding-bottom: 120px;
+}
+
+.detail-card {
+    background-color: #fff;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.detail-no {
+    font-size: 16px;
+    font-weight: bold;
+    color: #333;
+}
+
+.route-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+}
+
+.route-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+}
+
+.node-city {
+    font-size: 16px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 4px;
+    text-align: center;
+}
+
+.node-label {
+    font-size: 12px;
+    color: #999;
+}
+
+.route-arrow {
+    color: #ccc;
+    font-weight: bold;
+    margin: 0 10px;
+}
+
+.map-section {
+    background-color: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 16px;
+}
+
+.timeline-section {
+    background-color: #fff;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    /* Space for fixed action bar */
+}
+
+.timeline-empty {
+    color: #999;
+    font-size: 13px;
+    padding: 8px 0;
+}
+
+.timeline-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.timeline-node-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.timeline-node-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 12px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.timeline-node-dot.stop {
+    background-color: #f59e0b;
+}
+
+.timeline-node-dot.city {
+    background-color: #2563eb;
+}
+
+.timeline-node-dot-text {
+    line-height: 1;
+}
+
+.timeline-node-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.timeline-node-desc {
+    font-size: 14px;
+    color: #333;
+    line-height: 1.4;
+}
+
+.timeline-node-time {
+    font-size: 12px;
+    color: #999;
+}
+
+.section-title {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 12px;
+    display: block;
+}
+
+.action-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 16px;
+    background-color: #fff;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+    z-index: 100;
+}
+
+.info-section {
+    background-color: #fff;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.info-title {
+    font-size: 15px;
+    font-weight: bold;
+    border-left: 4px solid #1890ff;
+    padding-left: 8px;
+    margin-bottom: 12px;
+    color: #333;
+}
+
+.info-grid {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.info-item {
+    width: 50%;
+    margin-bottom: 12px;
+}
+
+.info-label {
+    font-size: 12px;
+    color: #999;
+    margin-bottom: 2px;
+}
+
+.info-value {
+    font-size: 14px;
+    color: #333;
+    font-weight: 500;
+}
+
+.total-duration-item {
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px dashed #e8e8e8;
+}
+
+.total-duration-value {
+    font-size: 16px;
+    color: #1677ff;
+    font-weight: 600;
+}
+
+.full-width {
+    width: 100%;
+}
+
+/* 设备绑定操作区域 */
+.device-action-section {
+    margin-bottom: 16px;
+}
+
+/* 已绑定设备卡片 */
+.device-info-card {
+    background-color: #fff;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.device-info-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.device-info-title {
+    font-size: 15px;
+    font-weight: bold;
+    color: #333;
+}
+
+.device-info-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.device-info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    background-color: #f5f5f5;
+    border-radius: 8px;
+}
+
+.device-info-label {
+    font-size: 13px;
+    color: #666;
+}
+
+.device-info-value {
+    font-size: 14px;
+    color: #333;
+    font-weight: 500;
+}
+
+.unbind-button {
+    margin-top: 12px;
+}
+
+/* 未绑定设备卡片 */
+.bind-device-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.bind-device-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.bind-device-icon {
+    font-size: 48px;
+    margin-bottom: 8px;
+}
+
+.bind-device-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.bind-device-desc {
+    font-size: 13px;
+    color: #666;
+    text-align: center;
+    line-height: 1.5;
+}
+
+.bind-device-last {
+    font-size: 12px;
+    color: #666;
+    line-height: 1.5;
+}
+
+.bind-device-button {
+    margin-top: 8px;
+}
+
+.bind-button-text {
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.floating-device-bar {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    z-index: 200;
+}
+
+.floating-device-content {
+    background-color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.floating-device-content.bound {
+    border-left: 4px solid #16a34a;
+}
+
+.floating-device-content.unbound {
+    border-left: 4px solid #2563eb;
+}
+
+.floating-device-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.floating-device-title {
+    font-size: 13px;
+    color: #666;
+    line-height: 1.4;
+}
+
+.floating-device-id {
+    font-size: 15px;
+    color: #111827;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.floating-device-subtitle {
+    font-size: 12px;
+    color: #6b7280;
+    line-height: 1.4;
+}
+
+.floating-bind-button {
+    flex-shrink: 0;
+}

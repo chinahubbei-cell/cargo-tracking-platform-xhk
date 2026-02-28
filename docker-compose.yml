@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: trackcard-db
+    ports:
+      - "5001:5432"
+    environment:
+      POSTGRES_DB: trackcard
+      POSTGRES_USER: trackcard
+      POSTGRES_PASSWORD: trackcard123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U trackcard -d trackcard" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Go 后端服务
+  backend:
+    build: ./trackcard-server
+    container_name: trackcard-backend
+    ports:
+      - "5050:5050"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: trackcard
+      DB_PASSWORD: trackcard123
+      DB_NAME: trackcard
+      JWT_SECRET: trackcard-jwt-secret-2026
+      PORT: 5050
+      KUAIHUOYUN_CID: "1067"
+      KUAIHUOYUN_SECRET_KEY: "O0DcRZTWrCwZqL44"
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:5050/api/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # React 前端服务
+  frontend:
+    build: ./trackcard-frontend
+    container_name: trackcard-frontend
+    ports:
+      - "5000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Kafka (可选，用于消息队列)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: trackcard-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    profiles:
+      - kafka
+    restart: unless-stopped
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: trackcard-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    profiles:
+      - kafka
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

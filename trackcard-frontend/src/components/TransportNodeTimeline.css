@@ -1,0 +1,318 @@
+.transport-node-timeline {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 2px 0;
+    gap: 2px;
+}
+
+.transport-node-timeline.compact {
+    padding: 1px 0;
+}
+
+.transport-timeline-loading {
+    display: flex;
+    justify-content: center;
+    padding: 6px;
+}
+
+/* 节点 */
+.timeline-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    min-width: 48px;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.timeline-node:hover {
+    transform: translateY(-2px);
+}
+
+
+.node-icon-wrapper {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 2px solid #d9d9d9;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: all 0.3s;
+}
+
+.compact .node-icon-wrapper {
+    width: 30px;
+    height: 30px;
+}
+
+.node-icon {
+    font-size: 24px;
+    /* Reduced from 24px */
+}
+
+.compact .node-icon {
+    font-size: 17px;
+    /* Reduced from 16px */
+}
+
+/* 状态样式 */
+.timeline-node.completed .node-icon-wrapper {
+    border-color: #52c41a;
+    background: #f6ffed;
+}
+
+.timeline-node.in-progress .node-icon-wrapper {
+    border-color: #1890ff;
+    background: #e6f7ff;
+}
+
+.timeline-node.skipped .node-icon-wrapper {
+    border-color: #faad14;
+    background: #fffbe6;
+    opacity: 0.7;
+}
+
+.timeline-node.pending .node-icon-wrapper {
+    border-color: #d9d9d9;
+    background: #fafafa;
+    opacity: 0.5;
+}
+
+/* 脉冲动画 */
+.pulse-ring {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 2px solid #1890ff;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.3);
+        opacity: 0.5;
+    }
+
+    100% {
+        transform: scale(1.5);
+        opacity: 0;
+    }
+}
+
+/* 节点标签 */
+.node-label {
+    font-size: 14px;
+    /* Increased from 11px by 20% */
+    color: #666;
+    text-align: center;
+    white-space: nowrap;
+    line-height: 1.2;
+    margin-top: 1px;
+}
+
+.compact .node-label {
+    font-size: 13px;
+    /* Increased from 10px by 20% */
+    line-height: 1.1;
+    margin-top: 0;
+}
+
+.timeline-node.completed .node-label {
+    color: #52c41a;
+    font-weight: 500;
+}
+
+.timeline-node.in-progress .node-label {
+    color: #1890ff;
+    font-weight: 600;
+}
+
+/* 触发方式 */
+.node-trigger {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    font-size: 12px;
+    /* Increased from 9px by 20% */
+    color: #999;
+    line-height: 1.1;
+}
+
+.node-trigger .anticon {
+    font-size: 11px;
+    /* Increased from 8px by 20% */
+}
+
+/* 完成时间 */
+.node-time {
+    font-size: 12px;
+    /* Increased from 9px by 20% */
+    color: #52c41a;
+    font-weight: 500;
+    line-height: 1.1;
+}
+
+/* 状态指示器 */
+.node-status-indicator {
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.compact .node-status-indicator {
+    display: none;
+}
+
+.status-dot {
+    display: block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+/* 连接线 */
+.timeline-connector {
+    flex: 1;
+    height: 2px;
+    background: linear-gradient(to right, #d9d9d9 50%, transparent 50%);
+    background-size: 8px 2px;
+    margin-top: 14px;
+    min-width: 16px;
+}
+
+.compact .timeline-connector {
+    margin-top: 9px;
+}
+
+.timeline-connector.completed {
+    background: #52c41a;
+}
+
+/* Tooltip样式 */
+.node-tooltip {
+    font-size: 15px;
+    /* Increased from 12px by 20% */
+    line-height: 1.6;
+}
+
+.node-tooltip div {
+    white-space: nowrap;
+}
+
+/* 停留点标记容器 */
+.timeline-stop-markers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+    padding: 8px;
+    background: #fafafa;
+    border-radius: 6px;
+}
+
+/* 停留点标记 */
+.stop-marker {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: #fff;
+    border: 1px solid #d9d9d9;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.stop-marker:hover {
+    border-color: #1890ff;
+    box-shadow: 0 2px 6px rgba(24, 144, 255, 0.15);
+}
+
+.stop-marker.active {
+    border-color: #1890ff;
+    background: #e6f7ff;
+}
+
+/* 停留图标 */
+.stop-icon {
+    font-size: 15px;
+    /* Increased from 12px by 20% */
+    color: #ff4d4f;
+}
+
+.stop-marker.active .stop-icon {
+    color: #1890ff;
+}
+
+/* 停留时长标签 */
+.stop-duration-tag {
+    font-size: 14px;
+    /* Increased from 11px by 20% */
+    padding: 0 4px;
+    margin: 0;
+    border-radius: 8px;
+}
+
+/* 停留脉冲动画 */
+.stop-pulse {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #1890ff;
+    animation: stopPulse 2s infinite;
+}
+
+@keyframes stopPulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+        box-shadow: 0 0 0 0 rgba(24, 144, 255, 0.7);
+    }
+
+    70% {
+        transform: scale(1);
+        opacity: 0;
+        box-shadow: 0 0 0 6px rgba(24, 144, 255, 0);
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 0;
+        box-shadow: 0 0 0 0 rgba(24, 144, 255, 0);
+    }
+}
+
+/* 停留点Tooltip */
+.stop-tooltip {
+    font-size: 15px;
+    /* Increased from 12px by 20% */
+    line-height: 1.6;
+    min-width: 180px;
+}
+
+.stop-tooltip .stop-address {
+    display: flex;
+    align-items: center;
+    margin-top: 4px;
+    font-size: 14px;
+    /* Increased from 11px by 20% */
+    color: #666;
+    word-break: break-all;
+}

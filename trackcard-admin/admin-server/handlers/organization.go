@@ -1,0 +1,423 @@
+package handlers
+
+import (
+	"net/http"
+	"strconv"
+	"time"
+
+	"trackcard-admin/models"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+)
+
+type OrganizationHandler struct {
+	db *gorm.DB
+}
+
+func NewOrganizationHandler(db *gorm.DB) *OrganizationHandler {
+	return &OrganizationHandler{db: db}
+}
+
+// PaginationParams 通用分页参数
+type PaginationParams struct {
+	Page     int `form:"page"`
+	PageSize int `form:"page_size"`
+}
+
+func (p *PaginationParams) Normalize() {
+	if p.Page < 1 {
+		p.Page = 1
+	}
+	if p.PageSize < 1 || p.PageSize > 100 {
+		p.PageSize = 20
+	}
+}
+
+// List 获取组织列表（带分页）
+func (h *OrganizationHandler) List(c *gin.Context) {
+	var page PaginationParams
+	c.ShouldBindQuery(&page)
+	page.Normalize()
+
+	var total int64
+	var orgs []models.Organization
+
+	query := h.db.Model(&models.Organization{})
+
+	// 筛选条件
+	if status := c.Query("status"); status != "" {
+		query = query.Where("service_status = ?", status)
+	}
+	if keyword := c.Query("keyword"); keyword != "" {
+		query = query.Where("name LIKE ? OR contact_name LIKE ? OR contact_phone LIKE ?",
+			"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
+	}
+
+	// 获取总数
+	query.Count(&total)
+
+	// 分页查询
+	offset := (page.Page - 1) * page.PageSize
+	query.Order("created_at DESC").Offset(offset).Limit(page.PageSize).Find(&orgs)
+
+	// 批量获取设备统计（避免N+1）
+	if len(orgs) > 0 {
+		orgIDs := make([]string, len(orgs))
+		for i, org := range orgs {
+			orgIDs[i] = org.ID
+		}
+
+		type DeviceCount struct {
+			OrgID string `gorm:"column:org_id"`
+			Count int    `gorm:"column:count"`
+		}
+		var counts []DeviceCount
+		h.db.Table("hardware_devices").
+			Select("org_id, COUNT(*) as count").
+			Where("org_id IN ?", orgIDs).
+			Group("org_id").
+			Find(&counts)
+
+		countMap := make(map[string]int)
+		for _, c := range counts {
+			countMap[c.OrgID] = c.Count
+		}
+		for i := range orgs {
+			orgs[i].DeviceCount = countMap[orgs[i].ID]
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    orgs,
+		"pagination": gin.H{
+			"page":        page.Page,
+			"page_size":   page.PageSize,
+			"total":       total,
+			"total_pages": (total + int64(page.PageSize) - 1) / int64(page.PageSize),
+		},
+	})
+}
+
+// CreateOrgRequest 创建组织请求
+type CreateOrgRequest struct {
+	Name         string `json:"name" binding:"required"`
+	ShortName    string `json:"short_name"`
+	ContactName  string `json:"contact_name"`
+	ContactPhone string `json:"contact_phone"`
+	ContactEmail string `json:"contact_email"`
+	Address      string `json:"address"`
+	Remark       string `json:"remark"`
+}
+
+// Create 创建组织
+func (h *OrganizationHandler) Create(c *gin.Context) {
+	var req CreateOrgRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "code": "INVALID_PARAMS", "message": "组织名称不能为空"})
+		return
+	}
+
+	// 检查重名
+	var existing models.Organization
+	if h.db.Where("name = ?", req.Name).First(&existing).Error == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "code": "DUPLICATE_NAME", "message": "组织名称已存在"})
+		return
+	}
+
+	org := models.Organization{
+		Name:          req.Name,
+		ShortName:     req.ShortName,
+		ContactName:   req.ContactName,
+		ContactPhone:  req.ContactPhone,
+		ContactEmail:  req.ContactEmail,
+		Address:       req.Address,
+		Remark:        req.Remark,
+		ServiceStatus: "trial",
+		MaxDevices:    10,
+		MaxUsers:      5,
+		MaxShipments:  100,
+	}
+
+	if err := h.db.Create(&org).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "code": "CREATE_FAILED", "message": "创建失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": org})
+}
+
+// Get 获取组织详情
+func (h *OrganizationHandler) Get(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "code": "INVALID_ID", "message": "ID不能为空"})
+		return
+	}
+
+	var org models.Organization
+	if err := h.db.First(&org, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "code": "NOT_FOUND", "message": "组织不存在"})
+		return
+	}
+
+	// 统计设备数
+	var deviceCount int64
+	h.db.Model(&models.HardwareDevice{}).Where("org_id = ?", id).Count(&deviceCount)
+	org.DeviceCount = int(deviceCount)
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": org})
+}
+
+// UpdateOrgRequest 更新组织请求（白名单字段）
+type UpdateOrgRequest struct {
+	Name         *string `json:"name"`
+	ShortName    *string `json:"short_name"`
+	ContactName  *string `json:"contact_name"`
+	ContactPhone *string `json:"contact_phone"`
+	ContactEmail *string `json:"contact_email"`
+	Address      *string `json:"address"`
+	Remark       *string `json:"remark"`
+}
+
+// Update 更新组织（白名单限制）
+func (h *OrganizationHandler) Update(c *gin.Context) {
+	id := c.Param("id")
+
+	var org models.Organization
+	if err := h.db.First(&org, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "code": "NOT_FOUND", "message": "组织不存在"})
+		return
+	}
+
+	var req UpdateOrgRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "code": "INVALID_PARAMS", "message": "请求参数错误"})
+		return
+	}
+
+	// 只更新允许的字段
+	updates := make(map[string]interface{})
+	if req.Name != nil {
+		// 检查重名
+		var existing models.Organization
+		if h.db.Where("name = ? AND id != ?", *req.Name, id).First(&existing).Error == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "code": "DUPLICATE_NAME", "message": "组织名称已存在"})
+			return
+		}
+		updates["name"] = *req.Name
+	}
+	if req.ShortName != nil {
+		updates["short_name"] = *req.ShortName
+	}
+	if req.ContactName != nil {
+		updates["contact_name"] = *req.ContactName
+	}
+	if req.ContactPhone != nil {
+		updates["contact_phone"] = *req.ContactPhone
+	}
+	if req.ContactEmail != nil {
+		updates["contact_email"] = *req.ContactEmail
+	}
+	if req.Address != nil {
+		updates["address"] = *req.Address
+	}
+	if req.Remark != nil {
+		updates["remark"] = *req.Remark
+	}
+
+	if len(updates) > 0 {
+		updates["updated_at"] = time.Now()
+		h.db.Model(&org).Updates(updates)
+	}
+
+	// 重新加载
+	h.db.First(&org, "id = ?", id)
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": org})
+}
+
+// Delete 删除组织
+func (h *OrganizationHandler) Delete(c *gin.Context) {
+	id := c.Param("id")
+
+	var org models.Organization
+	if err := h.db.First(&org, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "code": "NOT_FOUND", "message": "组织不存在"})
+		return
+	}
+
+	// 检查是否有关联设备
+	var deviceCount int64
+	h.db.Model(&models.HardwareDevice{}).Where("org_id = ?", id).Count(&deviceCount)
+	if deviceCount > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "code": "HAS_DEVICES", "message": "请先解绑该组织下的设备"})
+		return
+	}
+
+	// 检查是否有关联订单
+	var orderCount int64
+	h.db.Model(&models.HardwareOrder{}).Where("org_id = ?", id).Count(&orderCount)
+	if orderCount > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "code": "HAS_ORDERS", "message": "该组织存在关联订单，无法删除"})
+		return
+	}
+
+	h.db.Delete(&org)
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "删除成功"})
+}
+
+type SetServiceRequest struct {
+	ServiceStatus string     `json:"service_status"`
+	ServiceStart  *time.Time `json:"service_start"`
+	ServiceEnd    *time.Time `json:"service_end"`
+	AutoRenew     bool       `json:"auto_renew"`
+	MaxDevices    int        `json:"max_devices"`
+	MaxUsers      int        `json:"max_users"`
+	MaxShipments  int        `json:"max_shipments"`
+}
+
+// SetService 设置服务期限（手工）
+func (h *OrganizationHandler) SetService(c *gin.Context) {
+	id := c.Param("id")
+	adminID := c.GetString("user_id")
+
+	var org models.Organization
+	if err := h.db.First(&org, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "code": "NOT_FOUND", "message": "组织不存在"})
+		return
+	}
+
+	var req SetServiceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "code": "INVALID_PARAMS", "message": "请求参数错误"})
+		return
+	}
+
+	// 验证服务状态
+	validStatuses := map[string]bool{"trial": true, "active": true, "suspended": true, "expired": true}
+	if req.ServiceStatus != "" && !validStatuses[req.ServiceStatus] {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "code": "INVALID_STATUS", "message": "无效的服务状态"})
+		return
+	}
+
+	oldEndDate := org.ServiceEnd
+
+	updates := map[string]interface{}{
+		"updated_at": time.Now(),
+	}
+	if req.ServiceStatus != "" {
+		updates["service_status"] = req.ServiceStatus
+	}
+	if req.ServiceStart != nil {
+		updates["service_start"] = req.ServiceStart
+	}
+	if req.ServiceEnd != nil {
+		updates["service_end"] = req.ServiceEnd
+	}
+	updates["auto_renew"] = req.AutoRenew
+	if req.MaxDevices > 0 {
+		updates["max_devices"] = req.MaxDevices
+	}
+	if req.MaxUsers > 0 {
+		updates["max_users"] = req.MaxUsers
+	}
+	if req.MaxShipments > 0 {
+		updates["max_shipments"] = req.MaxShipments
+	}
+
+	h.db.Model(&org).Updates(updates)
+
+	// 记录续费日志
+	if req.ServiceEnd != nil && (oldEndDate == nil || !oldEndDate.Equal(*req.ServiceEnd)) {
+		renewal := &models.ServiceRenewal{
+			OrgID:       id,
+			RenewalType: "manual",
+			OldEndDate:  oldEndDate,
+			NewEndDate:  req.ServiceEnd,
+			CreatedBy:   adminID,
+		}
+		h.db.Create(renewal)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "服务设置成功"})
+}
+
+type RenewRequest struct {
+	PeriodMonths int     `json:"period_months" binding:"required,min=1,max=36"`
+	Amount       float64 `json:"amount" binding:"min=0"`
+	Remark       string  `json:"remark"`
+}
+
+// Renew 手动续费
+func (h *OrganizationHandler) Renew(c *gin.Context) {
+	id := c.Param("id")
+	adminID := c.GetString("user_id")
+
+	var org models.Organization
+	if err := h.db.First(&org, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "code": "NOT_FOUND", "message": "组织不存在"})
+		return
+	}
+
+	var req RenewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "code": "INVALID_PARAMS", "message": "续费月数必须在1-36之间"})
+		return
+	}
+
+	// 计算新到期时间
+	var baseDate time.Time
+	if org.ServiceEnd != nil && org.ServiceEnd.After(time.Now()) {
+		baseDate = *org.ServiceEnd
+	} else {
+		baseDate = time.Now()
+	}
+	newEndDate := baseDate.AddDate(0, req.PeriodMonths, 0)
+	oldEndDate := org.ServiceEnd
+
+	// 更新组织
+	h.db.Model(&org).Updates(map[string]interface{}{
+		"service_status": "active",
+		"service_end":    newEndDate,
+		"updated_at":     time.Now(),
+	})
+
+	// 记录续费
+	renewal := &models.ServiceRenewal{
+		OrgID:        id,
+		RenewalType:  "manual",
+		PeriodMonths: req.PeriodMonths,
+		Amount:       req.Amount,
+		OldEndDate:   oldEndDate,
+		NewEndDate:   &newEndDate,
+		CreatedBy:    adminID,
+	}
+	h.db.Create(renewal)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "续费成功",
+		"data": gin.H{
+			"new_end_date": newEndDate,
+		},
+	})
+}
+
+// GetExpiring 获取即将到期的组织
+func (h *OrganizationHandler) GetExpiring(c *gin.Context) {
+	days := 30
+	if d := c.Query("days"); d != "" {
+		if parsed, err := strconv.Atoi(d); err == nil && parsed > 0 && parsed <= 365 {
+			days = parsed
+		}
+	}
+
+	expireDate := time.Now().AddDate(0, 0, days)
+
+	var orgs []models.Organization
+	h.db.Where("service_end IS NOT NULL AND service_end <= ? AND service_status = ?",
+		expireDate, "active").Order("service_end ASC").Limit(50).Find(&orgs)
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": orgs})
+}

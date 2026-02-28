@@ -1,0 +1,243 @@
+package handlers
+
+import (
+	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
+
+	"trackcard-server/models"
+	"trackcard-server/utils"
+)
+
+type UserHandler struct {
+	db *gorm.DB
+}
+
+func NewUserHandler(db *gorm.DB) *UserHandler {
+	return &UserHandler{db: db}
+}
+
+func (h *UserHandler) List(c *gin.Context) {
+	status := c.Query("status")
+	role := c.Query("role")
+	search := c.Query("search")
+
+	query := h.db.Model(&models.User{})
+
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if role != "" {
+		query = query.Where("role = ?", role)
+	}
+	if search != "" {
+		query = query.Where("name LIKE ? OR email LIKE ?", "%"+search+"%", "%"+search+"%")
+	}
+
+	var users []models.User
+	if err := query.Order("created_at DESC").Find(&users).Error; err != nil {
+		utils.InternalError(c, err.Error())
+		return
+	}
+
+	// 构建包含组织信息的响应
+	var result []map[string]interface{}
+	for _, u := range users {
+		userResp := u.ToResponse()
+		userData := map[string]interface{}{
+			"id":          userResp.ID,
+			"email":       userResp.Email,
+			"name":        userResp.Name,
+			"role":        userResp.Role,
+			"permissions": userResp.Permissions,
+			"status":      userResp.Status,
+			"avatar":      userResp.Avatar,
+			"last_login":  userResp.LastLogin,
+			"created_at":  userResp.CreatedAt,
+			"updated_at":  userResp.UpdatedAt,
+		}
+
+		// 获取用户所属组织
+		var userOrgs []models.UserOrganization
+		h.db.Preload("Organization").Where("user_id = ?", u.ID).Find(&userOrgs)
+
+		var orgs []map[string]interface{}
+		var primaryOrgName string
+		for _, uo := range userOrgs {
+			if uo.Organization != nil {
+				orgInfo := map[string]interface{}{
+					"id":         uo.OrganizationID,
+					"name":       uo.Organization.Name,
+					"is_primary": uo.IsPrimary,
+					"position":   uo.Position,
+				}
+				orgs = append(orgs, orgInfo)
+				if uo.IsPrimary {
+					primaryOrgName = uo.Organization.Name
+				}
+			}
+		}
+		userData["organizations"] = orgs
+		userData["primary_org_name"] = primaryOrgName
+
+		result = append(result, userData)
+	}
+
+	utils.SuccessResponse(c, result)
+}
+
+func (h *UserHandler) Get(c *gin.Context) {
+	id := c.Param("id")
+
+	var user models.User
+	if err := h.db.First(&user, "id = ?", id).Error; err != nil {
+		utils.NotFound(c, "用户不存在")
+		return
+	}
+
+	utils.SuccessResponse(c, user.ToResponse())
+}
+
+type CreateUserRequest struct {
+	Email    string  `json:"email" binding:"required,email"`
+	Password string  `json:"password" binding:"required,min=6"`
+	Name     string  `json:"name" binding:"required"`
+	Role     string  `json:"role"`
+	Avatar   *string `json:"avatar"`
+}
+
+func (h *UserHandler) Create(c *gin.Context) {
+	var req CreateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "请提供有效的用户信息")
+		return
+	}
+
+	// 检查邮箱是否已存在
+	var count int64
+	h.db.Model(&models.User{}).Where("email = ?", req.Email).Count(&count)
+	if count > 0 {
+		utils.BadRequest(c, "该邮箱已被注册")
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		utils.InternalError(c, "密码加密失败")
+		return
+	}
+
+	user := models.User{
+		Email:    req.Email,
+		Password: string(hashedPassword),
+		Name:     req.Name,
+		Role:     req.Role,
+		Avatar:   req.Avatar,
+		Status:   "active",
+	}
+
+	if user.Role == "" {
+		user.Role = "viewer"
+	}
+
+	if err := h.db.Create(&user).Error; err != nil {
+		utils.InternalError(c, err.Error())
+		return
+	}
+
+	utils.CreatedResponse(c, user.ToResponse())
+}
+
+type UpdateUserRequest struct {
+	Name        *string `json:"name"`
+	Role        *string `json:"role"`
+	Status      *string `json:"status"`
+	Avatar      *string `json:"avatar"`
+	Permissions *string `json:"permissions"`
+}
+
+func (h *UserHandler) Update(c *gin.Context) {
+	id := c.Param("id")
+
+	var user models.User
+	if err := h.db.First(&user, "id = ?", id).Error; err != nil {
+		utils.NotFound(c, "用户不存在")
+		return
+	}
+
+	var req UpdateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "无效的请求数据")
+		return
+	}
+
+	updates := make(map[string]interface{})
+	if req.Name != nil {
+		updates["name"] = *req.Name
+	}
+	if req.Role != nil {
+		updates["role"] = *req.Role
+	}
+	if req.Status != nil {
+		updates["status"] = *req.Status
+	}
+	if req.Avatar != nil {
+		updates["avatar"] = *req.Avatar
+	}
+	if req.Permissions != nil {
+		updates["permissions"] = *req.Permissions
+	}
+
+	if err := h.db.Model(&user).Updates(updates).Error; err != nil {
+		utils.InternalError(c, err.Error())
+		return
+	}
+
+	h.db.First(&user, "id = ?", id)
+	utils.SuccessResponse(c, user.ToResponse())
+}
+
+func (h *UserHandler) Delete(c *gin.Context) {
+	id := c.Param("id")
+
+	// 不允许删除自己
+	currentUserID, _ := c.Get("user_id")
+	if currentUserID == id {
+		utils.BadRequest(c, "不能删除自己的账户")
+		return
+	}
+
+	if err := h.db.Delete(&models.User{}, "id = ?", id).Error; err != nil {
+		utils.InternalError(c, err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, gin.H{"success": true})
+}
+
+func (h *UserHandler) ResetPassword(c *gin.Context) {
+	id := c.Param("id")
+
+	var user models.User
+	if err := h.db.First(&user, "id = ?", id).Error; err != nil {
+		utils.NotFound(c, "用户不存在")
+		return
+	}
+
+	var req struct {
+		NewPassword string `json:"new_password" binding:"required,min=6"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "请提供有效密码")
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		utils.InternalError(c, "密码加密失败")
+		return
+	}
+
+	h.db.Model(&user).Update("password", string(hashedPassword))
+	utils.SuccessResponse(c, gin.H{"message": "密码重置成功"})
+}

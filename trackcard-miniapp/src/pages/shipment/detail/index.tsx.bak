@@ -1,0 +1,332 @@
+import React, { useState, useEffect } from 'react'
+import { View, Text, Map } from '@tarojs/components'
+import Taro, { useRouter } from '@tarojs/taro'
+import { Button, Steps, Step, Toast, Tag } from '@nutui/nutui-react-taro'
+import { ShipmentService } from '../../../services/api'
+import './index.css'
+
+interface Marker {
+    id: number
+    latitude: number
+    longitude: number
+    title: string
+    iconPath: string
+    width: number
+    height: number
+}
+
+function ShipmentDetail() {
+    const router = useRouter()
+    const { id } = router.params
+    const [detail, setDetail] = useState<any>(null)
+    const [markers, setMarkers] = useState<Marker[]>([])
+    const [polyline, setPolyline] = useState<any[]>([])
+
+    // Data Fetching
+    const fetchDetail = async () => {
+        console.log('fetchDetail START, id:', id)
+        try {
+            const res: any = await ShipmentService.get(id as string)
+            console.log('ShipmentService.get res:', res)
+
+            // Handle potentially nested response standard { code, data, ... }
+            const realDetail = res.data || res
+            setDetail(realDetail)
+            console.log('Detail set manually:', realDetail)
+
+            // If device bound, fetch route for map
+            if (realDetail.device_id) {
+                fetchRoute()
+            }
+        } catch (err) {
+            console.error(err)
+            Taro.showToast({ title: '加载运单失败', icon: 'none' })
+        }
+    }
+
+    const fetchRoute = async () => {
+        try {
+            const res: any = await ShipmentService.getRoute(id as string)
+            console.log('fetchRoute res:', res)
+            if (res) {
+                const routeData = res.data || res // Handle nested
+
+                // Process Markers
+                const newMarkers: Marker[] = []
+                const isValidCoord = (lat: number, lng: number) => {
+                    return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 && !(lat === 0 && lng === 0)
+                }
+
+                // Origin
+                if (routeData.origin && isValidCoord(routeData.origin.latitude, routeData.origin.longitude)) {
+                    newMarkers.push({
+                        id: 1,
+                        latitude: routeData.origin.latitude,
+                        longitude: routeData.origin.longitude,
+                        title: '起运地',
+                        // iconPath removed to use default marker
+                        iconPath: '',
+                        width: 20, height: 20
+                    })
+                }
+                // Destination
+                if (routeData.destination && isValidCoord(routeData.destination.latitude, routeData.destination.longitude)) {
+                    newMarkers.push({
+                        id: 2,
+                        latitude: routeData.destination.latitude,
+                        longitude: routeData.destination.longitude,
+                        title: '目的地',
+                        iconPath: '', // Use default
+                        width: 20, height: 20
+                    })
+                }
+                // Current
+                if (routeData.current_location && isValidCoord(routeData.current_location.latitude, routeData.current_location.longitude)) {
+                    newMarkers.push({
+                        id: 0,
+                        latitude: routeData.current_location.latitude,
+                        longitude: routeData.current_location.longitude,
+                        title: '当前位置',
+                        iconPath: '', // Use default
+                        width: 30, height: 30
+                    })
+                }
+                setMarkers(newMarkers)
+
+                // Process Polyline
+                if (routeData.points && routeData.points.length > 0) {
+                    // Force cast or map to valid location points
+                    const points = routeData.points.map((p: any) => ({
+                        latitude: Number(p.latitude),
+                        longitude: Number(p.longitude)
+                    }))
+
+                    setPolyline([{
+                        points: points,
+                        color: "#1890ff",
+                        width: 4,
+                        dottedLine: false
+                    }])
+                }
+            }
+        } catch (err) {
+            console.warn('Load route failed', err)
+        }
+    }
+
+    useEffect(() => {
+        if (id) {
+            fetchDetail()
+        }
+    }, [id])
+
+    // Actions
+    const handleBindDevice = async () => {
+        try {
+            const res = await Taro.scanCode({ scanType: ['barCode', 'qrCode'] })
+            const deviceId = res.result
+            if (!deviceId) return
+
+            Taro.showLoading({ title: '绑定中...' })
+            await ShipmentService.bindDevice(id as string, deviceId)
+            Taro.hideLoading()
+            Taro.showToast({ title: '绑定成功', icon: 'success' })
+
+            // Refresh detail
+            fetchDetail()
+        } catch (err: any) {
+            Taro.hideLoading()
+            console.error(err)
+            if (err.errMsg && err.errMsg.indexOf('scanCode:fail') === -1) {
+                Taro.showToast({ title: '绑定失败', icon: 'none' })
+            }
+        }
+    }
+
+    const STATUS_MAP: Record<string, string> = {
+        'pending': '待发货',
+        'in_transit': '运输中',
+        'delivered': '已送达',
+        'cancelled': '已取消'
+    }
+
+    const formatDate = (dateStr: string) => {
+        if (!dateStr) return '-'
+        const date = new Date(dateStr)
+        return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`
+    }
+
+    if (!detail) return <View>Loading...</View>
+
+    return (
+        <View className="detail-container">
+            {/* Header Info */}
+            <View className="detail-card">
+                <View className="detail-header">
+                    <Text className="detail-no">No. {detail.tracking_number || detail.id}</Text>
+                    <Tag type={detail.status === 'completed' ? 'success' : 'primary'}>
+                        {STATUS_MAP[detail.status] || detail.status}
+                    </Tag>
+                </View>
+                <View className="route-info">
+                    <View className="route-node">
+                        <Text className="node-city">{detail.origin || detail.origin_address}</Text>
+                        <Text className="node-label">发货地</Text>
+                    </View>
+                    <View className="route-arrow">--&gt;</View>
+                    <View className="route-node">
+                        <Text className="node-city">{detail.destination || detail.destination_address}</Text>
+                        <Text className="node-label">目的地</Text>
+                    </View>
+                </View>
+            </View>
+
+            {/* Cargo Info */}
+            <View className="info-section">
+                <Text className="info-title">货物信息</Text>
+                <View className="info-grid">
+                    <View className="info-item full-width">
+                        <View className="info-label">货物名称</View>
+                        <View className="info-value">{detail.cargo_name || '-'}</View>
+                    </View>
+                    <View className="info-item">
+                        <View className="info-label">件数</View>
+                        <View className="info-value">{detail.pieces || '-'}</View>
+                    </View>
+                    <View className="info-item">
+                        <View className="info-label">重量 (kg)</View>
+                        <View className="info-value">{detail.weight || '-'}</View>
+                    </View>
+                    <View className="info-item">
+                        <View className="info-label">体积 (m²)</View>
+                        <View className="info-value">{detail.volume || '-'}</View>
+                    </View>
+                </View>
+            </View>
+
+            {/* Key Docs */}
+            <View className="info-section">
+                <Text className="info-title">关键单证</Text>
+                <View className="info-grid">
+                    <View className="info-item full-width">
+                        <View className="info-label">提单号</View>
+                        <View className="info-value">{detail.bill_of_lading || '-'}</View>
+                    </View>
+                    <View className="info-item">
+                        <View className="info-label">箱号</View>
+                        <View className="info-value">{detail.container_no || '-'}</View>
+                    </View>
+                    <View className="info-item">
+                        <View className="info-label">封条号</View>
+                        <View className="info-value">{detail.seal_no || '-'}</View>
+                    </View>
+                </View>
+            </View>
+
+            {/* Transport Info */}
+            <View className="info-section">
+                <Text className="info-title">船务信息</Text>
+                <View className="info-grid">
+                    <View className="info-item">
+                        <View className="info-label">运输方式</View>
+                        <View className="info-value">
+                            {{ 'sea': '🚢 海运', 'air': '✈️ 空运', 'land': '🚚 陆运', 'multimodal': '🔄 多式联运' }[detail.transport_type] || detail.transport_type || '-'}
+                        </View>
+                    </View>
+                    <View className="info-item">
+                        <View className="info-label">运输模式</View>
+                        <View className="info-value">
+                            {{ 'lcl': '📦 零担', 'fcl': '🚢 整柜' }[detail.transport_mode] || detail.transport_mode || '-'}
+                        </View>
+                        {detail.transport_mode === 'fcl' && detail.container_type && <Text style={{ marginLeft: '4px', color: '#666' }}>({detail.container_type})</Text>}
+                    </View>
+                    <View className="info-item">
+                        <View className="info-label">船名/航次</View>
+                        <View className="info-value">
+                            {detail.vessel_name || '-'}/{detail.voyage_no || '-'}
+                        </View>
+                    </View>
+                    <View className="info-item">
+                        <View className="info-label">承运人</View>
+                        <View className="info-value">{detail.carrier || '-'}</View>
+                    </View>
+                    <View className="info-item full-width">
+                        <View className="info-label">定位设备ID</View>
+                        <View className="info-value">
+                            {detail.device && detail.device.external_device_id ? (
+                                detail.device.external_device_id
+                            ) : detail.unbound_device_id ? (
+                                `${detail.unbound_device_id} (已解绑)`
+                            ) : detail.device_id ? (
+                                `${detail.device_id} (设备异常)`
+                            ) : (
+                                '未绑定'
+                            )}
+                        </View>
+                    </View>
+                </View>
+            </View>
+
+            {/* Dates */}
+            <View className="info-section">
+                <Text className="info-title">时间节点</Text>
+                <View className="info-grid">
+                    <View className="info-item">
+                        <View className="info-label">预计出发 (ETD)</View>
+                        <View className="info-value">{detail.etd ? formatDate(detail.etd) : '-'}</View>
+                    </View>
+                    <View className="info-item">
+                        <View className="info-label">实际出发 (ATD)</View>
+                        <View className="info-value">{detail.atd ? formatDate(detail.atd) : '-'}</View>
+                    </View>
+                    <View className="info-item">
+                        <View className="info-label">预计到达 (ETA)</View>
+                        <View className="info-value">{detail.eta ? formatDate(detail.eta) : '-'}</View>
+                    </View>
+                    <View className="info-item">
+                        <View className="info-label">实际到达 (ATA)</View>
+                        <View className="info-value">{detail.ata ? formatDate(detail.ata) : '-'}</View>
+                    </View>
+                </View>
+            </View>
+
+            {/* Map Section */}
+            <View className="map-section">
+                <Map
+                    id="map"
+                    style={{ width: '100%', height: '300px' }}
+                    latitude={markers.length > 0 ? markers[0].latitude : 39.9}
+                    longitude={markers.length > 0 ? markers[0].longitude : 116.4}
+                    scale={5}
+                    markers={markers}
+                    polyline={polyline}
+                    showLocation
+                />
+            </View>
+
+            {/* Timeline Section */}
+            <View className="timeline-section">
+                <Text className="section-title">运输进度</Text>
+                <Steps direction="vertical" value={1}>
+                    {/* Placeholder Logic for Steps, backend should return stages */}
+                    {detail.stages ? detail.stages.map((stage: any, index: number) => (
+                        <Step
+                            key={index}
+                            title={stage.stage_name}
+                            content={stage.start_time ? `Time: ${new Date(stage.start_time).toLocaleString()}` : 'Pending'}
+                        />
+                    )) : (
+                        <Step title="等待发货" content="Pending" />
+                    )}
+                </Steps>
+            </View>
+
+            {/* Action Bar */}
+            <View className="action-bar">
+            </View>
+            <Toast />
+        </View>
+    )
+}
+
+export default ShipmentDetail
