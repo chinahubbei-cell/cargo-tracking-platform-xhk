@@ -280,6 +280,12 @@ const Organizations: React.FC = () => {
             render: (_, record) => record.user?.email || '-',
         },
         {
+            title: '手机号',
+            key: 'phone_number',
+            width: 140,
+            render: (_, record) => record.user?.phone_number ? `${record.user?.phone_country_code || '+86'} ${record.user?.phone_number}` : '-',
+        },
+        {
             title: '职位',
             dataIndex: 'position',
             key: 'position',
@@ -590,7 +596,7 @@ const Organizations: React.FC = () => {
                         <Select placeholder="选择负责人（可选）" allowClear showSearch optionFilterProp="label">
                             {allUsers.map(user => (
                                 <Select.Option key={user.id} value={user.id} label={user.name}>
-                                    {user.name} ({user.email})
+                                    {user.name} ({user.email}{user.phone_number ? ` / ${user.phone_country_code || '+86'} ${user.phone_number}` : ''})
                                 </Select.Option>
                             ))}
                         </Select>
@@ -640,7 +646,7 @@ const Organizations: React.FC = () => {
                         <Select allowClear showSearch optionFilterProp="label">
                             {allUsers.map(user => (
                                 <Select.Option key={user.id} value={user.id} label={user.name}>
-                                    {user.name} ({user.email})
+                                    {user.name} ({user.email}{user.phone_number ? ` / ${user.phone_country_code || '+86'} ${user.phone_number}` : ''})
                                 </Select.Option>
                             ))}
                         </Select>

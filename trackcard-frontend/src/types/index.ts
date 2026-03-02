@@ -8,6 +8,8 @@ export interface UserOrg {
 export interface User {
   id: string;
   email: string;
+  phone_country_code?: string;
+  phone_number?: string;
   name: string;
   role: 'admin' | 'operator' | 'viewer';
   permissions: string;
@@ -235,6 +237,8 @@ export interface DashboardStats {
 
 export interface LoginRequest {
   email: string;
+  phone_country_code?: string;
+  phone_number?: string;
   password: string;
 }
 
@@ -630,6 +634,8 @@ export interface Partner {
   contact_name: string;
   phone: string;
   email: string;
+  phone_country_code?: string;
+  phone_number?: string;
   address?: string;
   country?: string;
   region?: string;

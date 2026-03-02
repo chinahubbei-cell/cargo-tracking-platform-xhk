@@ -227,6 +227,12 @@ const Users: React.FC = () => {
             key: 'email',
         },
         {
+            title: '手机号',
+            key: 'phone_number',
+            width: 130,
+            render: (_, record) => (record.phone_number ? `${record.phone_country_code || '+86'} ${record.phone_number}` : '-'),
+        },
+        {
             title: '角色',
             dataIndex: 'role',
             key: 'role',
@@ -380,6 +386,7 @@ const Users: React.FC = () => {
                         <Descriptions.Item label="用户ID">{viewingUser.id}</Descriptions.Item>
                         <Descriptions.Item label="姓名">{viewingUser.name}</Descriptions.Item>
                         <Descriptions.Item label="邮箱">{viewingUser.email}</Descriptions.Item>
+                        <Descriptions.Item label="手机号">{viewingUser.phone_number ? `${viewingUser.phone_country_code || '+86'} ${viewingUser.phone_number}` : '-'}</Descriptions.Item>
                         <Descriptions.Item label="角色">
                             <Tag color={viewingUser.role === 'admin' ? 'red' : viewingUser.role === 'operator' ? 'blue' : 'default'}>
                                 {roleLabels[viewingUser.role] || viewingUser.role}
