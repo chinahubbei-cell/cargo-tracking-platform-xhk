@@ -309,7 +309,11 @@ func (h *AuthHandler) SendSMSCode(c *gin.Context) {
 	}
 	rec := models.AuthVerificationCode{Scene: req.Scene, PhoneCountryCode: cc, PhoneNumber: phone, CodeHash: codeHash(cc, phone, code, req.Scene), ExpiresAt: time.Now().Add(5 * time.Minute), RequestIP: c.ClientIP()}
 	h.db.Create(&rec)
-	utils.SuccessResponse(c, gin.H{"cooldown_seconds": 60})
+	resp := gin.H{"cooldown_seconds": 60}
+	if config.AppConfig != nil && config.AppConfig.Mode != "release" {
+		resp["debug_code"] = code
+	}
+	utils.SuccessResponse(c, resp)
 }
 
 func (h *AuthHandler) SMSLogin(c *gin.Context) {

@@ -23,7 +23,7 @@ interface AuthContextType {
     login: (username: string, password: string) => Promise<boolean>;
     loginBySMS: (phone: string, code: string) => Promise<{ success: boolean; needSelectOrg?: boolean; orgs?: UserOrg[] }>;
     selectOrg: (orgID: string) => Promise<boolean>;
-    sendSMSCode: (phone: string, scene?: 'login' | 'reset_password') => Promise<boolean>;
+    sendSMSCode: (phone: string, scene?: 'login' | 'reset_password') => Promise<{ ok: boolean; debugCode?: string }>;
     logout: () => void;
     isAuthenticated: boolean;
 }
@@ -79,12 +79,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
     };
 
-    const sendSMSCode = async (phone: string, scene: 'login' | 'reset_password' = 'login'): Promise<boolean> => {
+    const sendSMSCode = async (phone: string, scene: 'login' | 'reset_password' = 'login'): Promise<{ ok: boolean; debugCode?: string }> => {
         try {
             const res = await axios.post('/api/auth/sms/send-code', { phone_number: phone, scene });
-            return !!res.data.success;
+            const data = res.data?.data || res.data;
+            return { ok: !!res.data.success, debugCode: data?.debug_code };
         } catch {
-            return false;
+            return { ok: false };
         }
     };
 

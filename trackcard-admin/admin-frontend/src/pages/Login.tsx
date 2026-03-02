@@ -53,13 +53,17 @@ const Login: React.FC = () => {
             return;
         }
         setCodeLoading(true);
-        const ok = await sendSMSCode(phone, 'login');
+        const res = await sendSMSCode(phone, 'login');
         setCodeLoading(false);
-        if (!ok) {
+        if (!res.ok) {
             message.error('验证码发送失败');
             return;
         }
-        message.success('验证码已发送');
+        if (res.debugCode) {
+            message.success(`验证码已发送（开发模式）：${res.debugCode}`);
+        } else {
+            message.success('验证码已发送');
+        }
         setCountdown(60);
         const timer = setInterval(() => {
             setCountdown((prev) => {

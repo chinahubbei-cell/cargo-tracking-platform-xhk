@@ -81,8 +81,8 @@ class ApiClient {
 
 
 
-    async sendSMSCode(data: SendSMSCodeRequest): Promise<ApiResponse<{ cooldown_seconds: number }>> {
-        const response = await this.client.post<ApiResponse<{ cooldown_seconds: number }>>('/auth/sms/send-code', data);
+    async sendSMSCode(data: SendSMSCodeRequest): Promise<ApiResponse<{ cooldown_seconds: number; debug_code?: string }>> {
+        const response = await this.client.post<ApiResponse<{ cooldown_seconds: number; debug_code?: string }>>('/auth/sms/send-code', data);
         return response.data;
     }
 
