@@ -45,16 +45,18 @@ func (h *UserHandler) List(c *gin.Context) {
 	for _, u := range users {
 		userResp := u.ToResponse()
 		userData := map[string]interface{}{
-			"id":          userResp.ID,
-			"email":       userResp.Email,
-			"name":        userResp.Name,
-			"role":        userResp.Role,
-			"permissions": userResp.Permissions,
-			"status":      userResp.Status,
-			"avatar":      userResp.Avatar,
-			"last_login":  userResp.LastLogin,
-			"created_at":  userResp.CreatedAt,
-			"updated_at":  userResp.UpdatedAt,
+			"id":                 userResp.ID,
+			"email":              userResp.Email,
+			"phone_country_code": userResp.PhoneCountryCode,
+			"phone_number":       userResp.PhoneNumber,
+			"name":               userResp.Name,
+			"role":               userResp.Role,
+			"permissions":        userResp.Permissions,
+			"status":             userResp.Status,
+			"avatar":             userResp.Avatar,
+			"last_login":         userResp.LastLogin,
+			"created_at":         userResp.CreatedAt,
+			"updated_at":         userResp.UpdatedAt,
 		}
 
 		// 获取用户所属组织
@@ -99,11 +101,13 @@ func (h *UserHandler) Get(c *gin.Context) {
 }
 
 type CreateUserRequest struct {
-	Email    string  `json:"email" binding:"required,email"`
-	Password string  `json:"password" binding:"required,min=6"`
-	Name     string  `json:"name" binding:"required"`
-	Role     string  `json:"role"`
-	Avatar   *string `json:"avatar"`
+	Email            string  `json:"email" binding:"required,email"`
+	Password         string  `json:"password" binding:"required,min=6"`
+	Name             string  `json:"name" binding:"required"`
+	Role             string  `json:"role"`
+	Avatar           *string `json:"avatar"`
+	PhoneCountryCode string  `json:"phone_country_code"`
+	PhoneNumber      *string `json:"phone_number"`
 }
 
 func (h *UserHandler) Create(c *gin.Context) {
@@ -128,12 +132,18 @@ func (h *UserHandler) Create(c *gin.Context) {
 	}
 
 	user := models.User{
-		Email:    req.Email,
-		Password: string(hashedPassword),
-		Name:     req.Name,
-		Role:     req.Role,
-		Avatar:   req.Avatar,
-		Status:   "active",
+		Email:            req.Email,
+		Password:         string(hashedPassword),
+		Name:             req.Name,
+		Role:             req.Role,
+		Avatar:           req.Avatar,
+		PhoneCountryCode: req.PhoneCountryCode,
+		PhoneNumber:      req.PhoneNumber,
+		Status:           "active",
+	}
+
+	if user.PhoneCountryCode == "" {
+		user.PhoneCountryCode = "+86"
 	}
 
 	if user.Role == "" {
@@ -149,11 +159,13 @@ func (h *UserHandler) Create(c *gin.Context) {
 }
 
 type UpdateUserRequest struct {
-	Name        *string `json:"name"`
-	Role        *string `json:"role"`
-	Status      *string `json:"status"`
-	Avatar      *string `json:"avatar"`
-	Permissions *string `json:"permissions"`
+	Name             *string `json:"name"`
+	Role             *string `json:"role"`
+	Status           *string `json:"status"`
+	Avatar           *string `json:"avatar"`
+	Permissions      *string `json:"permissions"`
+	PhoneCountryCode *string `json:"phone_country_code"`
+	PhoneNumber      *string `json:"phone_number"`
 }
 
 func (h *UserHandler) Update(c *gin.Context) {
@@ -186,6 +198,12 @@ func (h *UserHandler) Update(c *gin.Context) {
 	}
 	if req.Permissions != nil {
 		updates["permissions"] = *req.Permissions
+	}
+	if req.PhoneCountryCode != nil {
+		updates["phone_country_code"] = *req.PhoneCountryCode
+	}
+	if req.PhoneNumber != nil {
+		updates["phone_number"] = *req.PhoneNumber
 	}
 
 	if err := h.db.Model(&user).Updates(updates).Error; err != nil {

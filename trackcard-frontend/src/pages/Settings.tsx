@@ -53,11 +53,29 @@ const Settings: React.FC = () => {
             loadConfig();
             checkApiStatus();
         }
-        // 个人设置默认显示个人信息
+        // 个人设置默认显示个人信息，并同步最新用户信息
         if (isProfileSettings) {
             setActiveKey('profile');
+            syncCurrentUser();
         }
     }, [isProfileSettings]);
+
+    const syncCurrentUser = async () => {
+        try {
+            const res = await api.getCurrentUser();
+            if (res.data) {
+                useAuthStore.setState((state) => ({
+                    ...state,
+                    user: {
+                        ...(state.user || {}),
+                        ...res.data,
+                    } as any,
+                }));
+            }
+        } catch {
+            // 静默失败，避免打扰用户
+        }
+    };
 
     const loadConfig = async () => {
         setLoading(true);

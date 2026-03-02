@@ -170,18 +170,20 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	// 构建包含组织信息的用户响应
 	userResp := user.ToResponse()
 	userWithOrg := map[string]interface{}{
-		"id":               userResp.ID,
-		"email":            userResp.Email,
-		"name":             userResp.Name,
-		"role":             userResp.Role,
-		"permissions":      userResp.Permissions,
-		"status":           userResp.Status,
-		"avatar":           userResp.Avatar,
-		"last_login":       now,
-		"created_at":       userResp.CreatedAt,
-		"updated_at":       userResp.UpdatedAt,
-		"organizations":    orgs,
-		"primary_org_name": primaryOrgName,
+		"id":                 userResp.ID,
+		"email":              userResp.Email,
+		"phone_country_code": userResp.PhoneCountryCode,
+		"phone_number":       userResp.PhoneNumber,
+		"name":               userResp.Name,
+		"role":               userResp.Role,
+		"permissions":        userResp.Permissions,
+		"status":             userResp.Status,
+		"avatar":             userResp.Avatar,
+		"last_login":         now,
+		"created_at":         userResp.CreatedAt,
+		"updated_at":         userResp.UpdatedAt,
+		"organizations":      orgs,
+		"primary_org_name":   primaryOrgName,
 	}
 
 	utils.SuccessResponse(c, gin.H{
@@ -202,16 +204,18 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	// 构建包含组织信息的响应
 	userResp := user.ToResponse()
 	result := map[string]interface{}{
-		"id":          userResp.ID,
-		"email":       userResp.Email,
-		"name":        userResp.Name,
-		"role":        userResp.Role,
-		"permissions": userResp.Permissions,
-		"status":      userResp.Status,
-		"avatar":      userResp.Avatar,
-		"last_login":  userResp.LastLogin,
-		"created_at":  userResp.CreatedAt,
-		"updated_at":  userResp.UpdatedAt,
+		"id":                 userResp.ID,
+		"email":              userResp.Email,
+		"phone_country_code": userResp.PhoneCountryCode,
+		"phone_number":       userResp.PhoneNumber,
+		"name":               userResp.Name,
+		"role":               userResp.Role,
+		"permissions":        userResp.Permissions,
+		"status":             userResp.Status,
+		"avatar":             userResp.Avatar,
+		"last_login":         userResp.LastLogin,
+		"created_at":         userResp.CreatedAt,
+		"updated_at":         userResp.UpdatedAt,
 	}
 
 	// 获取用户所属组织
