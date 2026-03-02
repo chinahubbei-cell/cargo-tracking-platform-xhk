@@ -17,16 +17,16 @@ pkill -9 -f "npm run dev" 2>/dev/null || true
 sleep 2
 
 # 2. 启动后端
-echo "🔧 启动后端服务 (端口 5051)..."
+echo "🔧 启动后端服务 (端口 5052)..."
 cd "$BACKEND_DIR"
-export PORT=5051
+export PORT=5052
 export DB_PATH="$BACKEND_DIR/trackcard.db"
 go run main.go &
 BACKEND_PID=$!
 sleep 5
 
 # 3. 验证后端
-if curl -s http://localhost:5051/api/health > /dev/null 2>&1 || curl -s http://localhost:5051/api/auth/login -X POST > /dev/null 2>&1; then
+if curl -s http://localhost:5052/api/health > /dev/null 2>&1 || curl -s http://localhost:5052/api/auth/login -X POST > /dev/null 2>&1; then
     echo "✅ 后端服务已启动"
 else
     echo "⚠️  后端服务可能未正常启动，请检查日志"
@@ -44,7 +44,7 @@ echo "=========================================="
 echo "✅ 服务已启动！"
 echo "=========================================="
 echo "前端地址: http://localhost:5173/"
-echo "后端地址: http://localhost:5051/"
+echo "后端地址: http://localhost:5052/"
 echo ""
 echo "登录信息:"
 echo "  邮箱: admin@trackcard.com"

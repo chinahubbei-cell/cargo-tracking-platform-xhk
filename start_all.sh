@@ -18,7 +18,7 @@ pkill -9 -f "go run main.go" 2>/dev/null || true
 pkill -9 -f "npm run dev" 2>/dev/null || true
 # Kill processes on specific ports if pkill by name misses them
 if command -v lsof >/dev/null 2>&1; then
-  lsof -ti:5051 | xargs kill -9 2>/dev/null || true
+  lsof -ti:5052 | xargs kill -9 2>/dev/null || true
   lsof -ti:5180 | xargs kill -9 2>/dev/null || true
   lsof -ti:8001 | xargs kill -9 2>/dev/null || true
   lsof -ti:5181 | xargs kill -9 2>/dev/null || true
@@ -27,10 +27,10 @@ else
 fi
 sleep 2
 
-# 2. 启动追踪后端 (5051)
-echo "🔧 启动追踪后端服务 (端口 5051)..."
+# 2. 启动追踪后端 (5052)
+echo "🔧 启动追踪后端服务 (端口 5052)..."
 cd "$TRACK_BACKEND_DIR"
-export PORT=5051
+export PORT=5052
 export DB_PATH="$TRACK_BACKEND_DIR/trackcard.db"
 go run main.go > "$PROJECT_DIR/track-backend.log" 2>&1 &
 TRACK_BACKEND_PID=$!
@@ -48,7 +48,7 @@ echo "   PID: $ADMIN_BACKEND_PID"
 sleep 5
 
 # 4. 验证后端
-if curl -s http://localhost:5051/api/health > /dev/null 2>&1 || curl -s http://localhost:5051/api/auth/login -X POST > /dev/null 2>&1; then
+if curl -s http://localhost:5052/api/health > /dev/null 2>&1 || curl -s http://localhost:5052/api/auth/login -X POST > /dev/null 2>&1; then
     echo "✅ 追踪后端已启动"
 else
     echo "⚠️  追踪后端可能未正常启动，请检查 track-backend.log"
@@ -81,7 +81,7 @@ echo "=========================================="
 echo "✅ 全系统服务已启动！"
 echo "=========================================="
 echo "追踪系统前端: http://localhost:5180/"
-echo "追踪系统后端: http://localhost:5051/"
+echo "追踪系统后端: http://localhost:5052/"
 echo "管理后台前端: http://localhost:5181/"
 echo "管理后台后端: http://localhost:8001/"
 echo ""
