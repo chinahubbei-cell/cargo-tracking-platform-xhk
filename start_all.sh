@@ -17,10 +17,14 @@ echo "⏹️  停止已有服务..."
 pkill -9 -f "go run main.go" 2>/dev/null || true
 pkill -9 -f "npm run dev" 2>/dev/null || true
 # Kill processes on specific ports if pkill by name misses them
-lsof -ti:5051 | xargs kill -9 2>/dev/null || true
-lsof -ti:5180 | xargs kill -9 2>/dev/null || true
-lsof -ti:8001 | xargs kill -9 2>/dev/null || true
-lsof -ti:5181 | xargs kill -9 2>/dev/null || true
+if command -v lsof >/dev/null 2>&1; then
+  lsof -ti:5051 | xargs kill -9 2>/dev/null || true
+  lsof -ti:5180 | xargs kill -9 2>/dev/null || true
+  lsof -ti:8001 | xargs kill -9 2>/dev/null || true
+  lsof -ti:5181 | xargs kill -9 2>/dev/null || true
+else
+  echo "⚠️  lsof 不可用，跳过按端口清理（仅按进程名清理）"
+fi
 sleep 2
 
 # 2. 启动追踪后端 (5051)
