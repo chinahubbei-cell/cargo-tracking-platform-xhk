@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Form, Input, Button, Card, message, Typography, Tabs, Modal, Radio } from 'antd';
+import { Form, Input, Button, Card, message, Typography, Tabs, Modal, Radio, Alert } from 'antd';
 import { UserOutlined, LockOutlined, MobileOutlined } from '@ant-design/icons';
 import api from '../api/client';
 import { useAuthStore } from '../store/authStore';
@@ -15,6 +15,7 @@ const Login: React.FC = () => {
     const [orgSelectVisible, setOrgSelectVisible] = useState(false);
     const [orgs, setOrgs] = useState<UserOrg[]>([]);
     const [selectedOrg, setSelectedOrg] = useState<string>('');
+    const [debugCode, setDebugCode] = useState<string>('');
 
     const navigate = useNavigate();
     const { setAuth } = useAuthStore();
@@ -50,8 +51,10 @@ const Login: React.FC = () => {
             const res: any = await api.sendSMSCode({ phone_number: phone, scene: 'login' });
             const data = res.data || res;
             if (data?.debug_code) {
-                message.success(`验证码已发送（开发模式）：${data.debug_code}`);
+                setDebugCode(data.debug_code);
+                message.success(`验证码已发送（测试模式）：${data.debug_code}`);
             } else {
+                setDebugCode('');
                 message.success('验证码已发送');
             }
             setCountdown(60);
@@ -143,6 +146,15 @@ const Login: React.FC = () => {
                                     <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }, { min: 6, message: '密码至少6位' }]}>
                                         <Input.Password prefix={<LockOutlined />} placeholder="密码" />
                                     </Form.Item>
+                                    {debugCode && (
+                                        <Alert
+                                            type="info"
+                                            showIcon
+                                            style={{ marginBottom: 12 }}
+                                            message={`测试验证码：${debugCode}`}
+                                            description="仅测试环境展示，请勿用于生产环境。"
+                                        />
+                                    )}
                                     <Form.Item><Button type="primary" htmlType="submit" loading={loading} block>登录</Button></Form.Item>
                                 </Form>
                             ),
@@ -165,6 +177,15 @@ const Login: React.FC = () => {
                                             </Button>
                                         </Input.Group>
                                     </Form.Item>
+                                    {debugCode && (
+                                        <Alert
+                                            type="info"
+                                            showIcon
+                                            style={{ marginBottom: 12 }}
+                                            message={`测试验证码：${debugCode}`}
+                                            description="仅测试环境展示，请勿用于生产环境。"
+                                        />
+                                    )}
                                     <Form.Item><Button type="primary" htmlType="submit" loading={loading} block>登录</Button></Form.Item>
                                 </Form>
                             ),
