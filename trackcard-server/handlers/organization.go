@@ -590,12 +590,14 @@ func (h *OrganizationHandler) GetUsers(c *gin.Context) {
 				"position":          uo.Position,
 				"joined_at":         uo.JoinedAt,
 				"user": map[string]interface{}{
-					"id":     uo.User.ID,
-					"name":   uo.User.Name,
-					"email":  uo.User.Email,
-					"role":   uo.User.Role,
-					"status": uo.User.Status,
-					"avatar": uo.User.Avatar,
+					"id":                 uo.User.ID,
+					"name":               uo.User.Name,
+					"email":              uo.User.Email,
+					"phone_country_code": uo.User.PhoneCountryCode,
+					"phone_number":       uo.User.PhoneNumber,
+					"role":               uo.User.Role,
+					"status":             uo.User.Status,
+					"avatar":             uo.User.Avatar,
 				},
 			}
 			if uo.Organization != nil {
