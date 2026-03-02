@@ -1,18 +1,29 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import axios from 'axios';
 
+interface UserOrg {
+    id: string;
+    name: string;
+    is_primary?: boolean;
+    position?: string;
+}
+
 interface User {
     id: string;
-    username: string;
+    username?: string;
     name: string;
     email: string;
     role: string;
+    organizations?: UserOrg[];
 }
 
 interface AuthContextType {
     user: User | null;
     token: string | null;
     login: (username: string, password: string) => Promise<boolean>;
+    loginBySMS: (phone: string, code: string) => Promise<{ success: boolean; needSelectOrg?: boolean; orgs?: UserOrg[] }>;
+    selectOrg: (orgID: string) => Promise<boolean>;
+    sendSMSCode: (phone: string, scene?: 'login' | 'reset_password') => Promise<boolean>;
     logout: () => void;
     isAuthenticated: boolean;
 }
@@ -21,9 +32,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
     const context = useContext(AuthContext);
-    if (!context) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
+    if (!context) throw new Error('useAuth must be used within an AuthProvider');
     return context;
 };
 
@@ -45,9 +54,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const fetchUser = async () => {
         try {
             const res = await axios.get('/api/auth/me');
-            if (res.data.success) {
-                setUser(res.data.data);
-            }
+            if (res.data.success) setUser(res.data.data);
         } catch {
             logout();
         }
@@ -57,21 +64,67 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
             const res = await axios.post('/api/auth/login', { email: username, password });
             if (res.data.success) {
-                // 后端返回格式: { success: true, data: { token, user } }
-                // 或者直接返回 { token, user } (取决于具体实现，但根据utils.SuccessResponse是前者)
                 const data = res.data.data || res.data;
-
                 if (data.token) {
                     localStorage.setItem('admin_token', data.token);
                     axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
                     setToken(data.token);
-                    // 设置用户信息
-                    if (data.user) {
-                        setUser(data.user);
-                    } else {
-                        // 如果没有返回用户信息，再请求一次
-                        await fetchUser();
+                    if (data.user) setUser(data.user); else await fetchUser();
+                    return true;
+                }
+            }
+        } catch {
+            return false;
+        }
+        return false;
+    };
+
+    const sendSMSCode = async (phone: string, scene: 'login' | 'reset_password' = 'login'): Promise<boolean> => {
+        try {
+            const res = await axios.post('/api/auth/sms/send-code', { phone_number: phone, scene });
+            return !!res.data.success;
+        } catch {
+            return false;
+        }
+    };
+
+    const loginBySMS = async (phone: string, code: string): Promise<{ success: boolean; needSelectOrg?: boolean; orgs?: UserOrg[] }> => {
+        try {
+            const res = await axios.post('/api/auth/sms/login', { phone_number: phone, code });
+            if (res.data.success) {
+                const data = res.data.data || res.data;
+                if (data.need_select_org) {
+                    if (data.token_temp) {
+                        localStorage.setItem('admin_token', data.token_temp);
+                        axios.defaults.headers.common['Authorization'] = `Bearer ${data.token_temp}`;
+                        setToken(data.token_temp);
                     }
+                    return { success: true, needSelectOrg: true, orgs: data.orgs || [] };
+                }
+                if (data.token) {
+                    localStorage.setItem('admin_token', data.token);
+                    axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+                    setToken(data.token);
+                    if (data.user) setUser(data.user); else await fetchUser();
+                    return { success: true };
+                }
+            }
+        } catch {
+            return { success: false };
+        }
+        return { success: false };
+    };
+
+    const selectOrg = async (orgID: string): Promise<boolean> => {
+        try {
+            const res = await axios.post('/api/auth/select-org', { org_id: orgID });
+            if (res.data.success) {
+                const data = res.data.data || res.data;
+                if (data.token) {
+                    localStorage.setItem('admin_token', data.token);
+                    axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+                    setToken(data.token);
+                    await fetchUser();
                     return true;
                 }
             }
@@ -89,7 +142,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!user }}>
+        <AuthContext.Provider value={{ user, token, login, loginBySMS, selectOrg, sendSMSCode, logout, isAuthenticated: !!user }}>
             {children}
         </AuthContext.Provider>
     );
