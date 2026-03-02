@@ -75,6 +75,8 @@ func main() {
 		&models.AirportGeofence{},    // 机场围栏表 (Phase 9新增)
 		&models.DeviceStopRecord{},   // 设备停留记录表
 		&models.TransitCityRecord{},  // 运单途经城市记录表
+		&models.AuthVerificationCode{},
+		&models.SMSSendLog{},
 	); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
@@ -342,6 +344,9 @@ func main() {
 		auth := api.Group("/auth")
 		{
 			auth.POST("/login", authHandler.Login)
+			auth.POST("/sms/send-code", authHandler.SendSMSCode)
+			auth.POST("/sms/login", authHandler.SMSLogin)
+			auth.POST("/password/reset-by-sms", authHandler.ResetPasswordBySMS)
 		}
 
 		// Magic Link 公开路由（无需认证）- Phase 8新增
@@ -370,6 +375,9 @@ func main() {
 			// 认证相关
 			protected.GET("/auth/me", authHandler.GetCurrentUser)
 			protected.POST("/auth/change-password", authHandler.ChangePassword)
+			protected.POST("/auth/select-org", authHandler.SelectOrg)
+			protected.GET("/auth/orgs", authHandler.ListUserOrgs)
+			protected.POST("/auth/switch-org", authHandler.SwitchOrg)
 
 			// 地理编码 (腾讯地图)
 			protected.GET("/geocode", geocodeHandler.Geocode)

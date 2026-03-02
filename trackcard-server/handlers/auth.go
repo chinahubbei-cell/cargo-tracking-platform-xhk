@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -11,6 +13,7 @@ import (
 
 	"trackcard-server/config"
 	"trackcard-server/models"
+	"trackcard-server/services"
 	"trackcard-server/utils"
 )
 
@@ -30,6 +33,68 @@ type LoginRequest struct {
 type LoginResponse struct {
 	Token string              `json:"token"`
 	User  models.UserResponse `json:"user"`
+}
+
+type SendSMSCodeRequest struct {
+	PhoneCountryCode string `json:"phone_country_code"`
+	PhoneNumber      string `json:"phone_number" binding:"required"`
+	Scene            string `json:"scene" binding:"required,oneof=login reset_password"`
+}
+
+type SMSLoginRequest struct {
+	PhoneCountryCode string `json:"phone_country_code"`
+	PhoneNumber      string `json:"phone_number" binding:"required"`
+	Code             string `json:"code" binding:"required,len=6"`
+}
+
+type SelectOrgRequest struct {
+	OrgID string `json:"org_id" binding:"required"`
+}
+
+type ResetPasswordBySMSRequest struct {
+	PhoneCountryCode string `json:"phone_country_code"`
+	PhoneNumber      string `json:"phone_number" binding:"required"`
+	Code             string `json:"code" binding:"required,len=6"`
+	NewPassword      string `json:"new_password" binding:"required,min=6"`
+}
+
+func normalizePhone(countryCode, phone string) (string, string) {
+	cc := strings.TrimSpace(countryCode)
+	if cc == "" {
+		cc = "+86"
+	}
+	p := strings.TrimSpace(phone)
+	p = strings.TrimPrefix(p, cc)
+	p = strings.TrimPrefix(p, "+86")
+	p = strings.TrimPrefix(p, "86")
+	return cc, p
+}
+
+func codeHash(phoneCountryCode, phoneNumber, code, scene string) string {
+	raw := fmt.Sprintf("%s|%s|%s|%s", phoneCountryCode, phoneNumber, code, scene)
+	sum := sha256.Sum256([]byte(raw))
+	return fmt.Sprintf("%x", sum[:])
+}
+
+func (h *AuthHandler) checkCode(phoneCountryCode, phoneNumber, code, scene string) error {
+	var rec models.AuthVerificationCode
+	err := h.db.Where("scene = ? AND phone_country_code = ? AND phone_number = ? AND used_at IS NULL", scene, phoneCountryCode, phoneNumber).Order("created_at DESC").First(&rec).Error
+	if err != nil {
+		return fmt.Errorf("验证码无效")
+	}
+	if time.Now().After(rec.ExpiresAt) {
+		return fmt.Errorf("验证码已过期")
+	}
+	if rec.AttemptCount >= 5 {
+		return fmt.Errorf("验证码尝试次数过多")
+	}
+	if rec.CodeHash != codeHash(phoneCountryCode, phoneNumber, code, scene) {
+		h.db.Model(&rec).Update("attempt_count", rec.AttemptCount+1)
+		return fmt.Errorf("验证码错误")
+	}
+	now := time.Now()
+	h.db.Model(&rec).Updates(map[string]interface{}{"used_at": now, "attempt_count": rec.AttemptCount + 1})
+	return nil
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -207,6 +272,157 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 
 	h.db.Model(&user).Update("password", string(hashedPassword))
 	utils.SuccessResponse(c, gin.H{"message": "密码修改成功"})
+}
+
+func (h *AuthHandler) SendSMSCode(c *gin.Context) {
+	var req SendSMSCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "请提供有效的手机号和验证码场景")
+		return
+	}
+	cc, phone := normalizePhone(req.PhoneCountryCode, req.PhoneNumber)
+	if len(phone) < 11 {
+		utils.BadRequest(c, "手机号格式不正确")
+		return
+	}
+	var recent int64
+	h.db.Model(&models.AuthVerificationCode{}).Where("phone_country_code = ? AND phone_number = ? AND scene = ? AND created_at > ?", cc, phone, req.Scene, time.Now().Add(-1*time.Minute)).Count(&recent)
+	if recent > 0 {
+		utils.BadRequest(c, "请求过于频繁，请稍后再试")
+		return
+	}
+	code := services.Generate6DigitCode()
+	provider := services.NewSMSProvider()
+	bizID, sendErr := provider.SendCode(cc, phone, code, req.Scene)
+	status := "sent"
+	errCode := ""
+	errMsg := ""
+	if sendErr != nil {
+		status = "failed"
+		errMsg = sendErr.Error()
+	}
+	now := time.Now()
+	h.db.Create(&models.SMSSendLog{Provider: provider.Name(), PhoneCountryCode: cc, PhoneNumber: phone, TemplateCode: req.Scene, BizID: bizID, Status: status, ErrorCode: errCode, ErrorMessage: errMsg, SentAt: &now})
+	if sendErr != nil {
+		utils.InternalError(c, "短信发送失败，请检查短信通道配置")
+		return
+	}
+	rec := models.AuthVerificationCode{Scene: req.Scene, PhoneCountryCode: cc, PhoneNumber: phone, CodeHash: codeHash(cc, phone, code, req.Scene), ExpiresAt: time.Now().Add(5 * time.Minute), RequestIP: c.ClientIP()}
+	h.db.Create(&rec)
+	utils.SuccessResponse(c, gin.H{"cooldown_seconds": 60})
+}
+
+func (h *AuthHandler) SMSLogin(c *gin.Context) {
+	var req SMSLoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "请提供有效的手机号和验证码")
+		return
+	}
+	cc, phone := normalizePhone(req.PhoneCountryCode, req.PhoneNumber)
+	if err := h.checkCode(cc, phone, req.Code, "login"); err != nil {
+		utils.Unauthorized(c, err.Error())
+		return
+	}
+	var user models.User
+	if err := h.db.Where("phone_country_code = ? AND phone_number = ?", cc, phone).First(&user).Error; err != nil {
+		utils.NotFound(c, "该手机号未绑定账号")
+		return
+	}
+	var userOrgs []models.UserOrganization
+	h.db.Preload("Organization").Where("user_id = ?", user.ID).Find(&userOrgs)
+	if len(userOrgs) == 0 {
+		utils.Forbidden(c, "该账号未分配机构")
+		return
+	}
+	orgs := make([]map[string]interface{}, 0, len(userOrgs))
+	for _, uo := range userOrgs {
+		if uo.Organization != nil {
+			orgs = append(orgs, map[string]interface{}{"id": uo.OrganizationID, "name": uo.Organization.Name, "is_primary": uo.IsPrimary, "position": uo.Position})
+		}
+	}
+	if user.LastOrgID == nil || *user.LastOrgID == "" {
+		tokenTemp, _ := utils.GenerateToken(user.ID, user.Email, user.Role, "")
+		utils.SuccessResponse(c, gin.H{"need_select_org": true, "token_temp": tokenTemp, "orgs": orgs})
+		return
+	}
+	token, err := utils.GenerateToken(user.ID, user.Email, user.Role, *user.LastOrgID)
+	if err != nil {
+		utils.InternalError(c, "生成令牌失败")
+		return
+	}
+	now := time.Now()
+	h.db.Model(&user).Updates(map[string]interface{}{"last_login": now, "phone_verified_at": now})
+	utils.SuccessResponse(c, gin.H{"need_select_org": false, "token": token, "user": user.ToResponse(), "orgs": orgs})
+}
+
+func (h *AuthHandler) SelectOrg(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	var req SelectOrgRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "请提供机构ID")
+		return
+	}
+	var uo models.UserOrganization
+	if err := h.db.Where("user_id = ? AND organization_id = ?", userID, req.OrgID).First(&uo).Error; err != nil {
+		utils.Forbidden(c, "无权限访问该机构")
+		return
+	}
+	var user models.User
+	if err := h.db.First(&user, "id = ?", userID).Error; err != nil {
+		utils.NotFound(c, "用户不存在")
+		return
+	}
+	token, err := utils.GenerateToken(user.ID, user.Email, user.Role, req.OrgID)
+	if err != nil {
+		utils.InternalError(c, "生成令牌失败")
+		return
+	}
+	now := time.Now()
+	h.db.Model(&user).Updates(map[string]interface{}{"last_org_id": req.OrgID, "last_login": now})
+	utils.SuccessResponse(c, gin.H{"token": token, "current_org": gin.H{"id": req.OrgID}})
+}
+
+func (h *AuthHandler) ListUserOrgs(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	var userOrgs []models.UserOrganization
+	h.db.Preload("Organization").Where("user_id = ?", userID).Find(&userOrgs)
+	orgs := make([]map[string]interface{}, 0, len(userOrgs))
+	for _, uo := range userOrgs {
+		if uo.Organization != nil {
+			orgs = append(orgs, map[string]interface{}{"id": uo.OrganizationID, "name": uo.Organization.Name, "is_primary": uo.IsPrimary, "position": uo.Position})
+		}
+	}
+	utils.SuccessResponse(c, orgs)
+}
+
+func (h *AuthHandler) SwitchOrg(c *gin.Context) {
+	h.SelectOrg(c)
+}
+
+func (h *AuthHandler) ResetPasswordBySMS(c *gin.Context) {
+	var req ResetPasswordBySMSRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "请提供有效参数")
+		return
+	}
+	cc, phone := normalizePhone(req.PhoneCountryCode, req.PhoneNumber)
+	if err := h.checkCode(cc, phone, req.Code, "reset_password"); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+	var user models.User
+	if err := h.db.Where("phone_country_code = ? AND phone_number = ?", cc, phone).First(&user).Error; err != nil {
+		utils.NotFound(c, "用户不存在")
+		return
+	}
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		utils.InternalError(c, "密码加密失败")
+		return
+	}
+	now := time.Now()
+	h.db.Model(&user).Updates(map[string]interface{}{"password": string(hashedPassword), "phone_verified_at": now})
+	utils.SuccessResponse(c, gin.H{"message": "密码重置成功"})
 }
 
 // SeedAdmin 创建默认管理员用户
