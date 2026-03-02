@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Form, Input, Button, Card, message, Typography, Tabs, Modal, Radio, Alert } from 'antd';
-import { UserOutlined, LockOutlined, MobileOutlined } from '@ant-design/icons';
+import { UserOutlined, LockOutlined, MobileOutlined, CopyOutlined } from '@ant-design/icons';
 import api from '../api/client';
 import { useAuthStore } from '../store/authStore';
 import type { UserOrg } from '../types';
@@ -52,6 +52,7 @@ const Login: React.FC = () => {
             const data = res.data || res;
             if (data?.debug_code) {
                 setDebugCode(data.debug_code);
+                smsForm.setFieldValue('code', data.debug_code);
                 message.success(`验证码已发送（测试模式）：${data.debug_code}`);
             } else {
                 setDebugCode('');
@@ -151,8 +152,26 @@ const Login: React.FC = () => {
                                             type="info"
                                             showIcon
                                             style={{ marginBottom: 12 }}
-                                            message={`测试验证码：${debugCode}`}
-                                            description="仅测试环境展示，请勿用于生产环境。"
+                                            message={
+                                                <span>
+                                                    测试验证码：<b>{debugCode}</b>
+                                                    <Button
+                                                        type="link"
+                                                        size="small"
+                                                        icon={<CopyOutlined />}
+                                                        onClick={async () => {
+                                                            try {
+                                                                await navigator.clipboard.writeText(debugCode);
+                                                                message.success('验证码已复制');
+                                                            } catch {
+                                                                message.warning('复制失败，请手动复制');
+                                                            }
+                                                        }}
+                                                        style={{ marginLeft: 8, padding: 0, height: 'auto' }}
+                                                    >复制</Button>
+                                                </span>
+                                            }
+                                            description="仅测试环境展示，已自动填入验证码输入框。"
                                         />
                                     )}
                                     <Form.Item><Button type="primary" htmlType="submit" loading={loading} block>登录</Button></Form.Item>
@@ -182,8 +201,26 @@ const Login: React.FC = () => {
                                             type="info"
                                             showIcon
                                             style={{ marginBottom: 12 }}
-                                            message={`测试验证码：${debugCode}`}
-                                            description="仅测试环境展示，请勿用于生产环境。"
+                                            message={
+                                                <span>
+                                                    测试验证码：<b>{debugCode}</b>
+                                                    <Button
+                                                        type="link"
+                                                        size="small"
+                                                        icon={<CopyOutlined />}
+                                                        onClick={async () => {
+                                                            try {
+                                                                await navigator.clipboard.writeText(debugCode);
+                                                                message.success('验证码已复制');
+                                                            } catch {
+                                                                message.warning('复制失败，请手动复制');
+                                                            }
+                                                        }}
+                                                        style={{ marginLeft: 8, padding: 0, height: 'auto' }}
+                                                    >复制</Button>
+                                                </span>
+                                            }
+                                            description="仅测试环境展示，已自动填入验证码输入框。"
                                         />
                                     )}
                                     <Form.Item><Button type="primary" htmlType="submit" loading={loading} block>登录</Button></Form.Item>
