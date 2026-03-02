@@ -177,33 +177,51 @@ func (h *UserHandler) Update(c *gin.Context) {
 		return
 	}
 
-	var req UpdateUserRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	var payload map[string]interface{}
+	if err := c.ShouldBindJSON(&payload); err != nil {
 		utils.BadRequest(c, "无效的请求数据")
 		return
 	}
 
 	updates := make(map[string]interface{})
-	if req.Name != nil {
-		updates["name"] = *req.Name
+	if v, ok := payload["name"]; ok {
+		if name, ok2 := v.(string); ok2 {
+			updates["name"] = name
+		}
 	}
-	if req.Role != nil {
-		updates["role"] = *req.Role
+	if v, ok := payload["role"]; ok {
+		if role, ok2 := v.(string); ok2 {
+			updates["role"] = role
+		}
 	}
-	if req.Status != nil {
-		updates["status"] = *req.Status
+	if v, ok := payload["status"]; ok {
+		if status, ok2 := v.(string); ok2 {
+			updates["status"] = status
+		}
 	}
-	if req.Avatar != nil {
-		updates["avatar"] = *req.Avatar
+	if v, ok := payload["avatar"]; ok {
+		if v == nil {
+			updates["avatar"] = nil
+		} else if avatar, ok2 := v.(string); ok2 {
+			updates["avatar"] = avatar
+		}
 	}
-	if req.Permissions != nil {
-		updates["permissions"] = *req.Permissions
+	if v, ok := payload["permissions"]; ok {
+		if perms, ok2 := v.(string); ok2 {
+			updates["permissions"] = perms
+		}
 	}
-	if req.PhoneCountryCode != nil {
-		updates["phone_country_code"] = *req.PhoneCountryCode
+	if v, ok := payload["phone_country_code"]; ok {
+		if cc, ok2 := v.(string); ok2 {
+			updates["phone_country_code"] = cc
+		}
 	}
-	if req.PhoneNumber != nil {
-		updates["phone_number"] = *req.PhoneNumber
+	if v, ok := payload["phone_number"]; ok {
+		if v == nil {
+			updates["phone_number"] = nil
+		} else if phone, ok2 := v.(string); ok2 {
+			updates["phone_number"] = phone
+		}
 	}
 
 	if err := h.db.Model(&user).Updates(updates).Error; err != nil {
