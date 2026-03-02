@@ -48,6 +48,7 @@ const AirportIcon = () => (
     </span>
 );
 import { useAuthStore } from '../../store/authStore';
+import api from '../../api/client';
 
 const { Header, Content, Sider } = Layout;
 
@@ -192,6 +193,28 @@ const MainLayout: React.FC = () => {
     const location = useLocation();
     const { user, logout, currentOrg, currentOrgId, setCurrentOrg } = useAuthStore();
 
+
+    const syncCurrentUser = async () => {
+        try {
+            const res = await api.getCurrentUser();
+            if (res.data) {
+                useAuthStore.setState((state) => ({
+                    ...state,
+                    user: {
+                        ...(state.user || {} as any),
+                        ...res.data,
+                    } as any,
+                }));
+                localStorage.setItem('user', JSON.stringify({
+                    ...(user || {}),
+                    ...res.data,
+                }));
+            }
+        } catch {
+            // 静默失败，避免打扰用户
+        }
+    };
+
     // 默认展开的菜单项（货运业务）
     const defaultOpenKeys = ['/business'];
 
@@ -217,6 +240,10 @@ const MainLayout: React.FC = () => {
         updateTime();
         const timer = setInterval(updateTime, 1000);
         return () => clearInterval(timer);
+    }, []);
+
+    useEffect(() => {
+        syncCurrentUser();
     }, []);
 
     const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
@@ -282,6 +309,7 @@ const MainLayout: React.FC = () => {
             logout();
             navigate('/login');
         } else if (key === 'profile') {
+            syncCurrentUser();
             setProfileModalVisible(true);
         } else if (key.startsWith('org-')) {
             const orgId = key.replace('org-', '');
@@ -500,6 +528,13 @@ const MainLayout: React.FC = () => {
                     <Descriptions column={1} bordered size="small">
                         <Descriptions.Item label="用户名">{user.name || '-'}</Descriptions.Item>
                         <Descriptions.Item label="邮箱">{user.email || '-'}</Descriptions.Item>
+                        <Descriptions.Item label="手机号">
+                            {user.phone_number ? (
+                                <span>{user.phone_country_code || '+86'} {user.phone_number}</span>
+                            ) : (
+                                <span style={{ color: '#999' }}>未设置</span>
+                            )}
+                        </Descriptions.Item>
                         <Descriptions.Item label="角色">
                             <Tag color={user.role === 'admin' ? 'red' : user.role === 'operator' ? 'blue' : 'default'}>
                                 {user.role === 'admin' ? '管理员' : user.role === 'operator' ? '操作员' : '查看者'}
