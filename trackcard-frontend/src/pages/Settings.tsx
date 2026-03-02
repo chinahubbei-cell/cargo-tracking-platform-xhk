@@ -296,6 +296,10 @@ const Settings: React.FC = () => {
                             <UserOutlined style={{ marginRight: 8 }} />
                             {user?.role === 'admin' ? '管理员' : user?.role === 'operator' ? '操作员' : '查看者'}
                         </div>
+                        <div style={{ color: '#666', marginBottom: 4 }}>
+                            <UserOutlined style={{ marginRight: 8 }} />
+                            {user?.phone_number ? `${user?.phone_country_code || '+86'} ${user?.phone_number}` : '手机号未设置'}
+                        </div>
                         {user?.organizations && user.organizations.length > 0 && (
                             <div style={{ color: '#666' }}>
                                 <TeamOutlined style={{ marginRight: 8 }} />
@@ -313,6 +317,10 @@ const Settings: React.FC = () => {
                 <Descriptions.Item label="邮箱">
                     <MailOutlined style={{ marginRight: 8 }} />
                     {user?.email || '-'}
+                </Descriptions.Item>
+                <Descriptions.Item label="手机号">
+                    <UserOutlined style={{ marginRight: 8 }} />
+                    {user?.phone_number ? `${user?.phone_country_code || '+86'} ${user?.phone_number}` : '-'}
                 </Descriptions.Item>
                 <Descriptions.Item label="角色">
                     <Tag color={user?.role === 'admin' ? 'red' : user?.role === 'operator' ? 'blue' : 'default'}>

@@ -337,6 +337,16 @@ const Users: React.FC = () => {
                     >
                         <Input disabled={!!editingUser} />
                     </Form.Item>
+                    <Form.Item name="phone_country_code" label="国家区号" initialValue="+86">
+                        <Input placeholder="如 +86" />
+                    </Form.Item>
+                    <Form.Item
+                        name="phone_number"
+                        label="手机号"
+                        rules={[{ pattern: /^$|^1\d{10}$/, message: '请输入11位大陆手机号' }]}
+                    >
+                        <Input placeholder="请输入手机号（可选）" />
+                    </Form.Item>
                     {!editingUser && (
                         <Form.Item
                             name="password"
