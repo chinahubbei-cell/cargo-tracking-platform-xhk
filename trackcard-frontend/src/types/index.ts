@@ -974,3 +974,24 @@ export interface ReviewDocumentRequest {
   status: DocumentStatus;
   remarks?: string;
 }
+
+
+export interface SendSMSCodeRequest {
+  phone_country_code?: string;
+  phone_number: string;
+  scene: "login" | "reset_password";
+}
+
+export interface SMSLoginRequest {
+  phone_country_code?: string;
+  phone_number: string;
+  code: string;
+}
+
+export interface SMSLoginResponse {
+  need_select_org: boolean;
+  token?: string;
+  token_temp?: string;
+  user?: User;
+  orgs?: UserOrg[];
+}

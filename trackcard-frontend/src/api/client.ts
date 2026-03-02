@@ -1,6 +1,6 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
-import type { ApiResponse, LoginRequest, LoginResponse, User, Device, Shipment, Alert, DashboardStats, TrackPoint, ShipmentLog, DeviceBinding, CarrierTrack, ShipmentMilestone, Partner, PartnerCreateRequest, PartnerUpdateRequest, ShipmentCollaboration, CollaborationCreateRequest, FreightRate, RateCreateRequest, RateCompareRequest, RateCompareResult, RouteInfo, PartnerPerformance, ShipmentDocument, GeneratedDocument, OCRResult, DocumentTemplate, DocumentStatus, Customer, PortGeofence } from '../types';
+import type { ApiResponse, LoginRequest, LoginResponse, User, Device, Shipment, Alert, DashboardStats, TrackPoint, ShipmentLog, DeviceBinding, CarrierTrack, ShipmentMilestone, Partner, PartnerCreateRequest, PartnerUpdateRequest, ShipmentCollaboration, CollaborationCreateRequest, FreightRate, RateCreateRequest, RateCompareRequest, RateCompareResult, RouteInfo, PartnerPerformance, ShipmentDocument, GeneratedDocument, OCRResult, DocumentTemplate, DocumentStatus, Customer, PortGeofence, SendSMSCodeRequest, SMSLoginRequest, SMSLoginResponse, UserOrg } from '../types';
 
 const API_BASE_URL = '/api';
 console.log('🔌 API_BASE_URL forced to:', API_BASE_URL);
@@ -76,6 +76,28 @@ class ApiClient {
     // 认证
     async login(data: LoginRequest): Promise<LoginResponse> {
         const response = await this.client.post<LoginResponse>('/auth/login', data);
+        return response.data;
+    }
+
+
+
+    async sendSMSCode(data: SendSMSCodeRequest): Promise<ApiResponse<{ cooldown_seconds: number }>> {
+        const response = await this.client.post<ApiResponse<{ cooldown_seconds: number }>>('/auth/sms/send-code', data);
+        return response.data;
+    }
+
+    async loginBySMS(data: SMSLoginRequest): Promise<ApiResponse<SMSLoginResponse>> {
+        const response = await this.client.post<ApiResponse<SMSLoginResponse>>('/auth/sms/login', data);
+        return response.data;
+    }
+
+    async selectOrg(org_id: string): Promise<ApiResponse<{ token: string; current_org: UserOrg }>> {
+        const response = await this.client.post<ApiResponse<{ token: string; current_org: UserOrg }>>('/auth/select-org', { org_id });
+        return response.data;
+    }
+
+    async resetPasswordBySMS(data: { phone_country_code?: string; phone_number: string; code: string; new_password: string }): Promise<ApiResponse<void>> {
+        const response = await this.client.post<ApiResponse<void>>('/auth/password/reset-by-sms', data);
         return response.data;
     }
 
