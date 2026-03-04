@@ -526,9 +526,10 @@ func (s *ShipmentStageService) CreateStagesFromRoute(shipmentID string, route mo
 		stages = append(stages, stage)
 	}
 
-	// 第一个环节设置为进行中
+	// 第一个环节设置为进行中，并补齐开始时间（避免前端最新节点无时间）
 	if len(stages) > 0 {
 		stages[0].Status = models.StageStatusInProgress
+		stages[0].ActualStart = &now
 	}
 
 	return s.db.Create(&stages).Error
@@ -651,9 +652,10 @@ func (s *ShipmentStageService) createStagesLegacy(shipmentID, origin, dest, orig
 		stages = append(stages, stage)
 	}
 
-	// 第一个环节设置为进行中
+	// 第一个环节设置为进行中，并补齐开始时间（避免前端最新节点无时间）
 	if len(stages) > 0 {
 		stages[0].Status = models.StageStatusInProgress
+		stages[0].ActualStart = &now
 	}
 
 	return s.db.Create(&stages).Error
@@ -1000,6 +1002,11 @@ func (s *ShipmentStageService) GetStagesSummary(shipmentID string) ([]models.Shi
 	responses := make([]models.ShipmentStageResponse, len(stages))
 	for i, stage := range stages {
 		resp := stage.ToResponse()
+		// 兼容历史数据：进行中但缺少 actual_start 时，回退到 updated_at，避免前端“最新节点无时间”
+		if resp.Status == models.StageStatusInProgress && resp.ActualStart == nil {
+			fallback := stage.UpdatedAt
+			resp.ActualStart = &fallback
+		}
 		// 填充港口坐标
 		if port, ok := portMap[stage.PortCode]; ok {
 			resp.PortLat = port.Latitude

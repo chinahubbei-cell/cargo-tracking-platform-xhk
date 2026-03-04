@@ -503,10 +503,12 @@ const TransportNodeTimeline: React.FC<TransportNodeTimelineProps> = ({
                                             </div>
                                         )}
 
-                                        {/* 完成时间 */}
-                                        {isCompleted && stage.actual_end && (
+                                        {/* 节点时间：已完成显示完成时间，进行中显示开始时间 */}
+                                        {((isCompleted && stage.actual_end) || (isInProgress && (stage.actual_start || (stage as any).updated_at))) && (
                                             <div className="node-time">
-                                                {formatTime(stage.actual_end)}
+                                                {isCompleted
+                                                    ? formatTime(stage.actual_end)
+                                                    : formatTime(stage.actual_start || (stage as any).updated_at)}
                                             </div>
                                         )}
                                     </>
