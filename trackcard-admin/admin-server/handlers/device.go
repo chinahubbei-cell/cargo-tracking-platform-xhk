@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
+	"sort"
 	"time"
 
 	"trackcard-admin/models"
@@ -16,6 +18,148 @@ type DeviceHandler struct {
 
 func NewDeviceHandler(db *gorm.DB) *DeviceHandler {
 	return &DeviceHandler{db: db}
+}
+
+// syncHardwareDevicesFromBusiness 同步业务侧设备归属到管理侧硬件表
+// 目标：修复历史脏数据导致的组织归属显示错误（如 devices 已修正但 hardware_devices 仍是旧值）
+func (h *DeviceHandler) syncHardwareDevicesFromBusiness() {
+	type businessDeviceRow struct {
+		ID               string     `gorm:"column:id"`
+		Type             string     `gorm:"column:type"`
+		Name             string     `gorm:"column:name"`
+		ExternalDeviceID *string    `gorm:"column:external_device_id"`
+		OrgID            *string    `gorm:"column:org_id"`
+		OrgName          *string    `gorm:"column:org_name"`
+		CreatedAt        time.Time  `gorm:"column:created_at"`
+		LastUpdate       *time.Time `gorm:"column:last_update"`
+	}
+
+	var businessDevices []businessDeviceRow
+	if err := h.db.Table("devices AS d").
+		Select("d.id, d.type, d.name, d.external_device_id, d.org_id, o.name AS org_name, d.created_at, d.last_update").
+		Joins("LEFT JOIN organizations o ON o.id = d.org_id").
+		Where("d.deleted_at IS NULL").
+		Find(&businessDevices).Error; err != nil {
+		log.Printf("[AdminDeviceSync] query business devices failed: %v", err)
+		return
+	}
+
+	if len(businessDevices) == 0 {
+		return
+	}
+
+	var hardwareDevices []models.HardwareDevice
+	if err := h.db.Find(&hardwareDevices).Error; err != nil {
+		log.Printf("[AdminDeviceSync] query hardware devices failed: %v", err)
+		return
+	}
+
+	hardwareByID := make(map[string]*models.HardwareDevice, len(hardwareDevices))
+	hardwareByIMEI := make(map[string]*models.HardwareDevice, len(hardwareDevices))
+	for i := range hardwareDevices {
+		hd := &hardwareDevices[i]
+		hardwareByID[hd.ID] = hd
+		if hd.IMEI != "" {
+			hardwareByIMEI[hd.IMEI] = hd
+		}
+	}
+
+	// 可能存在同一 IMEI 多条业务设备记录（历史脏数据），按“最后更新时间/创建时间”降序，确保最新归属生效
+	sort.SliceStable(businessDevices, func(i, j int) bool {
+		ti := businessDevices[i].CreatedAt
+		if businessDevices[i].LastUpdate != nil && !businessDevices[i].LastUpdate.IsZero() {
+			ti = *businessDevices[i].LastUpdate
+		}
+		tj := businessDevices[j].CreatedAt
+		if businessDevices[j].LastUpdate != nil && !businessDevices[j].LastUpdate.IsZero() {
+			tj = *businessDevices[j].LastUpdate
+		}
+		return ti.After(tj)
+	})
+
+	processedHardware := make(map[string]bool)
+	now := time.Now()
+	for _, bd := range businessDevices {
+		externalID := bd.ID
+		if bd.ExternalDeviceID != nil && *bd.ExternalDeviceID != "" {
+			externalID = *bd.ExternalDeviceID
+		}
+
+		target := hardwareByID[bd.ID]
+		if target == nil && externalID != "" {
+			target = hardwareByIMEI[externalID]
+		}
+
+		orgID := ""
+		if bd.OrgID != nil {
+			orgID = *bd.OrgID
+		}
+		orgName := ""
+		if bd.OrgName != nil {
+			orgName = *bd.OrgName
+		}
+
+		if target != nil {
+			// 已处理过该硬件设备，跳过旧业务记录，避免被历史脏数据覆盖
+			if processedHardware[target.ID] {
+				continue
+			}
+			processedHardware[target.ID] = true
+
+			updates := make(map[string]interface{})
+			if target.OrgID != orgID {
+				updates["org_id"] = orgID
+			}
+			if target.OrgName != orgName {
+				updates["org_name"] = orgName
+			}
+			if len(updates) > 0 {
+				updates["updated_at"] = now
+				if err := h.db.Model(target).Updates(updates).Error; err != nil {
+					log.Printf("[AdminDeviceSync] update hardware device %s failed: %v", target.ID, err)
+				} else {
+					target.OrgID = orgID
+					target.OrgName = orgName
+				}
+			}
+			continue
+		}
+
+		deviceType := bd.Type
+		if deviceType == "" {
+			deviceType = "container"
+		}
+		createdAt := bd.CreatedAt
+		if createdAt.IsZero() {
+			createdAt = now
+		}
+		updatedAt := createdAt
+		if bd.LastUpdate != nil && !bd.LastUpdate.IsZero() {
+			updatedAt = *bd.LastUpdate
+		}
+
+		newDevice := models.HardwareDevice{
+			ID:          bd.ID,
+			DeviceType:  deviceType,
+			DeviceModel: bd.Name,
+			IMEI:        externalID,
+			SN:          bd.ID,
+			Status:      "allocated",
+			OrgID:       orgID,
+			OrgName:     orgName,
+			CreatedAt:   createdAt,
+			UpdatedAt:   updatedAt,
+		}
+		if err := h.db.Create(&newDevice).Error; err != nil {
+			log.Printf("[AdminDeviceSync] insert hardware device %s failed: %v", bd.ID, err)
+			continue
+		}
+		hardwareByID[newDevice.ID] = &newDevice
+		if newDevice.IMEI != "" {
+			hardwareByIMEI[newDevice.IMEI] = &newDevice
+		}
+		processedHardware[newDevice.ID] = true
+	}
 }
 
 // List 获取设备列表（带分页）
@@ -42,6 +186,8 @@ func (h *DeviceHandler) List(c *gin.Context) {
 		query = query.Where("imei LIKE ? OR sn LIKE ? OR org_name LIKE ?",
 			"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
 	}
+
+	h.syncHardwareDevicesFromBusiness()
 
 	// 总数
 	query.Count(&total)
@@ -296,30 +442,56 @@ func (h *DeviceHandler) Allocate(c *gin.Context) {
 	}
 
 	now := time.Now()
-	h.db.Model(&device).Updates(map[string]interface{}{
-		"status":           "allocated",
-		"org_id":           req.OrgID,
-		"org_name":         org.Name,
-		"sub_account_id":   req.SubAccountID,
-		"sub_account_name": req.SubAccountName,
-		"order_id":         req.OrderID,
-		"allocated_at":     now,
-		"allocated_by":     adminID,
-		"updated_at":       now,
+	err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&device).Updates(map[string]interface{}{
+			"status":           "allocated",
+			"org_id":           req.OrgID,
+			"org_name":         org.Name,
+			"sub_account_id":   req.SubAccountID,
+			"sub_account_name": req.SubAccountName,
+			"order_id":         req.OrderID,
+			"allocated_at":     now,
+			"allocated_by":     adminID,
+			"updated_at":       now,
+		}).Error; err != nil {
+			return err
+		}
+
+		// 同步到业务表 devices
+		deviceName := device.DeviceModel
+		if deviceName == "" {
+			deviceName = "设备-" + device.IMEI
+		}
+		if err := tx.Exec(`
+			INSERT INTO devices (id, name, type, status, external_device_id, org_id, sub_account_id, service_status, provider, created_at, last_update)
+			VALUES (?, ?, ?, 'unactivated', ?, ?, ?, 'active', 'kuaihuoyun', ?, ?)
+			ON CONFLICT(id) DO UPDATE SET 
+			org_id=excluded.org_id, 
+			sub_account_id=excluded.sub_account_id,
+			service_status='active',
+			deleted_at=NULL
+		`, device.ID, deviceName, "container", device.IMEI, req.OrgID, req.SubAccountID, now, now).Error; err != nil {
+			return err
+		}
+
+		// 记录分配日志
+		log := &models.DeviceAllocationLog{
+			DeviceID:  device.ID,
+			IMEI:      device.IMEI,
+			Action:    "allocate",
+			ToOrgID:   req.OrgID,
+			OrgName:   org.Name,
+			OrderID:   req.OrderID,
+			Remark:    req.Remark,
+			CreatedBy: adminID,
+		}
+		return tx.Create(log).Error
 	})
 
-	// 记录分配日志
-	log := &models.DeviceAllocationLog{
-		DeviceID:  device.ID,
-		IMEI:      device.IMEI,
-		Action:    "allocate",
-		ToOrgID:   req.OrgID,
-		OrgName:   org.Name,
-		OrderID:   req.OrderID,
-		Remark:    req.Remark,
-		CreatedBy: adminID,
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "code": "TX_FAILED", "message": "分配同步失败"})
+		return
 	}
-	h.db.Create(log)
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "分配成功"})
 }
@@ -351,28 +523,42 @@ func (h *DeviceHandler) Return(c *gin.Context) {
 	oldOrgName := device.OrgName
 
 	now := time.Now()
-	h.db.Model(&device).Updates(map[string]interface{}{
-		"status":           "in_stock",
-		"org_id":           "",
-		"org_name":         "",
-		"sub_account_id":   "",
-		"sub_account_name": "",
-		"returned_at":      now,
-		"return_reason":    req.Reason,
-		"updated_at":       now,
+	err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&device).Updates(map[string]interface{}{
+			"status":           "in_stock",
+			"org_id":           "",
+			"org_name":         "",
+			"sub_account_id":   "",
+			"sub_account_name": "",
+			"returned_at":      now,
+			"return_reason":    req.Reason,
+			"updated_at":       now,
+		}).Error; err != nil {
+			return err
+		}
+
+		// 在业务表中软删除/释放该设备
+		if err := tx.Exec("UPDATE devices SET deleted_at=?, org_id = NULL, sub_account_id = NULL WHERE id=?", now, device.ID).Error; err != nil {
+			return err
+		}
+
+		// 记录退回日志
+		log := &models.DeviceAllocationLog{
+			DeviceID:  device.ID,
+			IMEI:      device.IMEI,
+			Action:    "return",
+			FromOrgID: oldOrgID,
+			OrgName:   oldOrgName,
+			Remark:    req.Reason,
+			CreatedBy: adminID,
+		}
+		return tx.Create(log).Error
 	})
 
-	// 记录退回日志
-	log := &models.DeviceAllocationLog{
-		DeviceID:  device.ID,
-		IMEI:      device.IMEI,
-		Action:    "return",
-		FromOrgID: oldOrgID,
-		OrgName:   oldOrgName,
-		Remark:    req.Reason,
-		CreatedBy: adminID,
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "code": "TX_FAILED", "message": "退回同步失败"})
+		return
 	}
-	h.db.Create(log)
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "退回成功"})
 }
