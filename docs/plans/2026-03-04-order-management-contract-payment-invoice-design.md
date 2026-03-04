@@ -60,7 +60,12 @@
 - `not_generated` / `generated` / `signing` / `signed_online` / `signed_offline` / `invalid`
 
 ### 5.3 支付状态（payment_status）
-- `unpaid` / `pending` / `paid` / `failed` / `refunded`
+- `pending_payment`（待支付）
+- `paid`（已支付）
+
+联动规则：
+- 订单支付状态与客户支付状态一一联动，仅保留“待支付/已支付”两态用于客户侧可见状态。
+- 客户完成支付后，订单从 `payment_pending`（或等价待支付状态）流转到 `paid`。
 
 ### 5.4 开票状态（invoice_status）
 - `not_requested` / `requested` / `approved` / `issued` / `delivered` / `rejected`
@@ -69,7 +74,11 @@
 ## 6.1 管理后台
 ### A. 订单管理菜单
 - 列表：按订单类型（新购/续费）、来源（后台/追踪平台）、状态筛选
-- 操作：审核、驳回、生成合同、确认签约、确认到账、开票处理、取消订单
+- 操作：审核、驳回、生成合同、确认签约、确认到账、开票处理、订单作废
+
+订单作废规则：
+- 仅在“未支付成功”前允许作废（即支付状态为待支付）。
+- 一旦已支付，不允许直接作废，需走退款/冲正流程（后续阶段实现）。
 
 ### B. 审核中心
 - 追踪平台提交订单默认进入此处
@@ -183,6 +192,7 @@
 - `POST /api/admin/orders/:id/contract/generate`
 - `POST /api/admin/orders/:id/contract/confirm-offline`
 - `POST /api/admin/orders/:id/payment/confirm`
+- `POST /api/admin/orders/:id/void`（未支付订单作废）
 - `POST /api/admin/orders/:id/invoice/review`
 - `POST /api/admin/orders/:id/invoice/issue`
 
@@ -213,9 +223,11 @@
 1) 追踪平台新购/续费订单可提交并进入后台待审核
 2) 管理后台可审核通过/驳回并留痕
 3) 审核通过后可完成在线签约或线下签约
-4) 支付后订单状态正确流转为已支付
-5) 开票申请可提交、审核、开票并回填结果
-6) 续费订单完成后，设备/服务期限正确延长
+4) 客户支付状态与订单支付状态严格联动（待支付/已支付）
+5) 支付后订单状态正确流转为已支付
+6) 未支付订单可在后台作废，已支付订单不可作废
+7) 开票申请可提交、审核、开票并回填结果
+8) 续费订单完成后，设备/服务期限正确延长
 
 ## 12. 风险与控制
 - 风险：状态流转复杂导致脏状态
