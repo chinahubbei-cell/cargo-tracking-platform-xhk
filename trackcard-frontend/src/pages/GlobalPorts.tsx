@@ -578,50 +578,50 @@ const GlobalPorts: React.FC = () => {
                                                     const isFocused = focusedPort?.code === key;
 
                                                     return (
-                                                    <Marker
-                                                        key={key}
-                                                        position={[port.latitude, port.longitude]}
-                                                        icon={createPortIcon(port.tier, port.is_transit_hub)}
-                                                        ref={(ref) => {
-                                                            if (ref) {
-                                                                markerRefs.current[key] = ref;
-                                                            }
-                                                        }}
-                                                    >
-                                                        {isFocused && (
-                                                            <span style={{
-                                                                position: 'absolute',
-                                                                top: -30,
-                                                                left: '50%',
-                                                                transform: 'translateX(-50%)',
-                                                                background: '#ff4d4f',
-                                                                color: 'white',
-                                                                padding: '2px 8px',
-                                                                borderRadius: '4px',
-                                                                fontSize: '12px',
-                                                                fontWeight: 'bold',
-                                                                whiteSpace: 'nowrap',
-                                                                zIndex: 1000
-                                                            }}>
-                                                                🔍 当前选中
-                                                            </span>
-                                                        )}
-                                                        <Popup>
-                                                            <div style={{ minWidth: 180 }}>
-                                                                <strong style={{ fontSize: 14 }}>{port.name}</strong>
-                                                                <span style={{ color: '#666', marginLeft: 4 }}>({port.code})</span>
-                                                                <br />
-                                                                <span style={{ color: '#888', fontSize: 12 }}>{port.name_en}</span>
-                                                                <br />
-                                                                <span>{regionNameMap[port.region] || port.region} | {port.country}</span>
-                                                                <br />
-                                                                <span style={{ color: port.tier === 1 ? '#faad14' : '#52c41a' }}>
-                                                                    {port.tier === 1 ? '⭐ 枢纽港' : port.tier === 2 ? '干线港' : '支线港'}
+                                                        <Marker
+                                                            key={key}
+                                                            position={[port.latitude, port.longitude]}
+                                                            icon={createPortIcon(port.tier, port.is_transit_hub)}
+                                                            ref={(ref) => {
+                                                                if (ref) {
+                                                                    markerRefs.current[key] = ref;
+                                                                }
+                                                            }}
+                                                        >
+                                                            {isFocused && (
+                                                                <span style={{
+                                                                    position: 'absolute',
+                                                                    top: -30,
+                                                                    left: '50%',
+                                                                    transform: 'translateX(-50%)',
+                                                                    background: '#ff4d4f',
+                                                                    color: 'white',
+                                                                    padding: '2px 8px',
+                                                                    borderRadius: '4px',
+                                                                    fontSize: '12px',
+                                                                    fontWeight: 'bold',
+                                                                    whiteSpace: 'nowrap',
+                                                                    zIndex: 1000
+                                                                }}>
+                                                                    🔍 当前选中
                                                                 </span>
-                                                                {port.is_transit_hub && <Tag color="purple" style={{ marginLeft: 4 }}>中转枢纽</Tag>}
-                                                            </div>
-                                                        </Popup>
-                                                    </Marker>
+                                                            )}
+                                                            <Popup>
+                                                                <div style={{ minWidth: 180 }}>
+                                                                    <strong style={{ fontSize: 14 }}>{port.name}</strong>
+                                                                    <span style={{ color: '#666', marginLeft: 4 }}>({port.code})</span>
+                                                                    <br />
+                                                                    <span style={{ color: '#888', fontSize: 12 }}>{port.name_en}</span>
+                                                                    <br />
+                                                                    <span>{regionNameMap[port.region] || port.region} | {port.country}</span>
+                                                                    <br />
+                                                                    <span style={{ color: port.tier === 1 ? '#faad14' : '#52c41a' }}>
+                                                                        {port.tier === 1 ? '⭐ 枢纽港' : port.tier === 2 ? '干线港' : '支线港'}
+                                                                    </span>
+                                                                    {port.is_transit_hub && <Tag color="purple" style={{ marginLeft: 4 }}>中转枢纽</Tag>}
+                                                                </div>
+                                                            </Popup>
+                                                        </Marker>
                                                     );
                                                 })}
 
@@ -697,7 +697,7 @@ const GlobalPorts: React.FC = () => {
                                         rowKey="code"
                                         size="small"
                                         loading={loading}
-                                        scroll={{ x: 1100, y: 400 }}
+                                        scroll={{ x: 1100, y: 'calc(100vh - 620px)' }}
                                         pagination={{
                                             current: currentPage,
                                             pageSize: pageSize,

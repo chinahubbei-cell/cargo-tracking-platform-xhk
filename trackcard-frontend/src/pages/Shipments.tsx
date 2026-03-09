@@ -1080,7 +1080,7 @@ const Shipments: React.FC = () => {
             render: (value: number) => formatAmount(value),
         },
         {
-            title: '定位设备ID号',
+            title: '定位设备号',
             dataIndex: 'device',
             key: 'device_id',
             width: 160,
@@ -1476,7 +1476,7 @@ const Shipments: React.FC = () => {
                             </Form.Item>
                         </Col>
                         <Col span={6}>
-                            <Form.Item name="device_id" label="定位设备ID号" className={styles.formItem}>
+                            <Form.Item name="device_id" label="定位设备号" className={styles.formItem}>
                                 <Select
                                     placeholder="输入设备ID搜索"
                                     allowClear
@@ -1795,7 +1795,7 @@ const Shipments: React.FC = () => {
                                                 <Descriptions.Item label="ATA 实际到达">
                                                     {viewingShipment.ata ? new Date(viewingShipment.ata).toLocaleString('zh-CN') : '-'}
                                                 </Descriptions.Item>
-                                                <Descriptions.Item label="定位设备ID号">
+                                                <Descriptions.Item label="定位设备号">
                                                     {(() => {
                                                         const device = viewingShipment.device;
                                                         if (device?.external_device_id) return device.external_device_id;

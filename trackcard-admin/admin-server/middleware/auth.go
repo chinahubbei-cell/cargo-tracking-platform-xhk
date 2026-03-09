@@ -22,8 +22,8 @@ func getJWTSecret() []byte {
 	jwtSecretOnce.Do(func() {
 		secret := os.Getenv("JWT_SECRET")
 		if secret == "" {
-			secret = "trackcard-admin-dev-secret-change-in-prod"
-			log.Println("[Warning] JWT_SECRET not set, using default (unsafe for production)")
+			secret = "trackcard-jwt-secret-2026"
+			log.Println("[Warning] JWT_SECRET not set, using default trackcard-server secret")
 		}
 		jwtSecret = []byte(secret)
 	})
@@ -33,8 +33,10 @@ func getJWTSecret() []byte {
 // Claims JWT声明
 type Claims struct {
 	UserID   string `json:"user_id"`
+	Email    string `json:"email"`
 	Username string `json:"username"`
 	Role     string `json:"role"`
+	OrgID    string `json:"org_id"`
 	jwt.RegisteredClaims
 }
 
@@ -43,6 +45,7 @@ func GenerateToken(userID, username, role string) (string, error) {
 	claims := Claims{
 		UserID:   userID,
 		Username: username,
+		Email:    username,
 		Role:     role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
@@ -95,7 +98,11 @@ func JWTAuth() gin.HandlerFunc {
 
 		// 将用户信息存入上下文
 		c.Set("user_id", claims.UserID)
-		c.Set("username", claims.Username)
+		if claims.Username != "" {
+			c.Set("username", claims.Username)
+		} else {
+			c.Set("username", claims.Email)
+		}
 		c.Set("role", claims.Role)
 
 		c.Next()

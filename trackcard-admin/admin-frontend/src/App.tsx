@@ -44,7 +44,24 @@ const AppRoutes: React.FC = () => {
 
 const App: React.FC = () => {
     return (
-        <ConfigProvider locale={zhCN}>
+        <ConfigProvider
+            locale={zhCN}
+            theme={{
+                token: {
+                    fontSize: 17,
+                },
+            }}
+        >
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                body { font-size: 17px !important; }
+                .ant-btn { font-size: 17px !important; }
+                .ant-input { font-size: 17px !important; }
+                .ant-select { font-size: 17px !important; }
+                .ant-table { font-size: 17px !important; }
+                .ant-menu-item, .ant-menu-submenu-title { font-size: 20px !important; }
+                .ant-menu-item .anticon, .ant-menu-submenu-title .anticon { font-size: 20px !important; }
+            ` }} />
             <BrowserRouter>
                 <AuthProvider>
                     <AppRoutes />

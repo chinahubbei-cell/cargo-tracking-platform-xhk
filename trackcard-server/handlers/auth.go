@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,6 +17,135 @@ import (
 	"trackcard-server/services"
 	"trackcard-server/utils"
 )
+
+// ===== S-3: 登录速率限制器（防暴力破解） =====
+
+type loginAttempt struct {
+	count    int
+	firstAt  time.Time
+	lockedAt time.Time
+}
+
+var (
+	loginAttempts = make(map[string]*loginAttempt)
+	loginMu       sync.Mutex
+)
+
+const (
+	maxLoginAttempts     = 5                // 最大尝试次数
+	loginWindowDuration  = 1 * time.Minute  // 窗口时间
+	loginLockoutDuration = 15 * time.Minute // 锁定时间
+)
+
+// checkLoginRateLimit 检查登录速率限制，返回 true 表示被限制
+func checkLoginRateLimit(key string) bool {
+	loginMu.Lock()
+	defer loginMu.Unlock()
+
+	now := time.Now()
+	attempt, exists := loginAttempts[key]
+
+	if !exists {
+		loginAttempts[key] = &loginAttempt{count: 0, firstAt: now}
+		return false
+	}
+
+	// 如果当前处于锁定状态
+	if !attempt.lockedAt.IsZero() && now.Before(attempt.lockedAt.Add(loginLockoutDuration)) {
+		return true
+	}
+
+	// 窗口过期，重置
+	if now.After(attempt.firstAt.Add(loginWindowDuration)) {
+		attempt.count = 0
+		attempt.firstAt = now
+		attempt.lockedAt = time.Time{}
+	}
+
+	return false
+}
+
+// recordLoginFailure 记录登录失败
+func recordLoginFailure(key string) {
+	loginMu.Lock()
+	defer loginMu.Unlock()
+
+	attempt, exists := loginAttempts[key]
+	if !exists {
+		loginAttempts[key] = &loginAttempt{count: 1, firstAt: time.Now()}
+		return
+	}
+	attempt.count++
+	if attempt.count >= maxLoginAttempts {
+		attempt.lockedAt = time.Now()
+		log.Printf("[Security] Account locked due to %d failed attempts: %s", attempt.count, key)
+	}
+}
+
+// clearLoginAttempts 登录成功后清除记录
+func clearLoginAttempts(key string) {
+	loginMu.Lock()
+	defer loginMu.Unlock()
+	delete(loginAttempts, key)
+}
+
+// ===== M-9: 组织服务状态校验（消除重复） =====
+
+func checkOrgServiceValid(org *models.Organization) (string, bool) {
+	if org == nil {
+		return "", true
+	}
+	if org.ServiceStatus != "active" && org.ServiceStatus != "trial" && org.ServiceStatus != "" {
+		return "组织服务已被禁用或过期，请联系管理员", false
+	}
+	if org.ServiceEnd != nil && !org.ServiceEnd.IsZero() && time.Now().After(*org.ServiceEnd) {
+		return "组织服务已到期，请联系管理员续费", false
+	}
+	return "", true
+}
+
+// ===== G-6: 登录响应构建（消除重复） =====
+
+func buildLoginResponse(db *gorm.DB, user *models.User, loginTime time.Time) ([]map[string]interface{}, map[string]interface{}) {
+	var userOrgs []models.UserOrganization
+	db.Preload("Organization").Where("user_id = ?", user.ID).Find(&userOrgs)
+
+	var orgs []map[string]interface{}
+	var primaryOrgName string
+	for _, uo := range userOrgs {
+		if uo.Organization != nil {
+			orgs = append(orgs, map[string]interface{}{
+				"id":         uo.OrganizationID,
+				"name":       uo.Organization.Name,
+				"is_primary": uo.IsPrimary,
+				"position":   uo.Position,
+			})
+			if uo.IsPrimary {
+				primaryOrgName = uo.Organization.Name
+			}
+		}
+	}
+
+	userResp := user.ToResponse()
+	userWithOrg := map[string]interface{}{
+		"id":                 userResp.ID,
+		"email":              userResp.Email,
+		"phone_country_code": userResp.PhoneCountryCode,
+		"phone_number":       userResp.PhoneNumber,
+		"name":               userResp.Name,
+		"role":               userResp.Role,
+		"permissions":        userResp.Permissions,
+		"status":             userResp.Status,
+		"avatar":             userResp.Avatar,
+		"last_login":         loginTime,
+		"created_at":         userResp.CreatedAt,
+		"updated_at":         userResp.UpdatedAt,
+		"organizations":      orgs,
+		"primary_org_name":   primaryOrgName,
+	}
+
+	return orgs, userWithOrg
+}
 
 type AuthHandler struct {
 	db *gorm.DB
@@ -33,6 +163,12 @@ type LoginRequest struct {
 type LoginResponse struct {
 	Token string              `json:"token"`
 	User  models.UserResponse `json:"user"`
+}
+
+type PhonePasswordLoginRequest struct {
+	PhoneCountryCode string `json:"phone_country_code"`
+	PhoneNumber      string `json:"phone_number" binding:"required"`
+	Password         string `json:"password" binding:"required,min=6"`
 }
 
 type SendSMSCodeRequest struct {
@@ -98,6 +234,11 @@ func (h *AuthHandler) checkCode(phoneCountryCode, phoneNumber, code, scene strin
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
+	if gin.Mode() == gin.ReleaseMode {
+		utils.Forbidden(c, "当前生产环境仅支持手机号登录")
+		return
+	}
+
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.BadRequest(c, "请提供有效的登录凭证")
@@ -110,29 +251,44 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		email = "admin@trackcard.com"
 	}
 
+	// S-3: 暴力破解防护 - 基于 IP+账号 双维度限制
+	rateLimitKey := fmt.Sprintf("login:%s:%s", c.ClientIP(), email)
+	if checkLoginRateLimit(rateLimitKey) {
+		log.Printf("[Security] Login rate limited: IP=%s, email=%s", c.ClientIP(), email)
+		utils.TooManyRequests(c, 15)
+		return
+	}
+
 	var user models.User
 	if err := h.db.Where("email = ?", email).First(&user).Error; err != nil {
-		log.Printf("[Login Debug] User not found: %s", email)
+		recordLoginFailure(rateLimitKey)
 		utils.Unauthorized(c, "用户名或密码错误")
 		return
 	}
 
 	if user.Status != "active" {
-		log.Printf("[Login Debug] User inactive: %s", email)
 		utils.Forbidden(c, "账户已被禁用")
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		log.Printf("[Login Debug] Password mismatch for %s. Hash: %s... Input: %s", email, user.Password[:10], req.Password)
+		recordLoginFailure(rateLimitKey)
+		log.Printf("[Login] Password mismatch for user %s from IP %s", email, c.ClientIP())
 		utils.Unauthorized(c, "邮箱或密码错误")
 		return
 	}
 
-	// 获取主组织ID
+	// 登录成功，清除限制记录
+	clearLoginAttempts(rateLimitKey)
+
+	// 获取主组织ID（使用 M-9 抽取的 checkOrgServiceValid）
 	var primaryOrgID string
 	var userOrg models.UserOrganization
-	if err := h.db.Where("user_id = ? AND is_primary = ?", user.ID, true).First(&userOrg).Error; err == nil {
+	if err := h.db.Preload("Organization").Where("user_id = ? AND is_primary = ?", user.ID, true).First(&userOrg).Error; err == nil {
+		if msg, ok := checkOrgServiceValid(userOrg.Organization); !ok {
+			utils.Forbidden(c, msg)
+			return
+		}
 		primaryOrgID = userOrg.OrganizationID
 	}
 
@@ -146,45 +302,76 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	now := time.Now()
 	h.db.Model(&user).Update("last_login", now)
 
-	// 获取用户所属组织
-	var userOrgs []models.UserOrganization
-	h.db.Preload("Organization").Where("user_id = ?", user.ID).Find(&userOrgs)
+	// G-6: 使用公共函数构建响应
+	_, userWithOrg := buildLoginResponse(h.db, &user, now)
 
-	var orgs []map[string]interface{}
-	var primaryOrgName string
-	for _, uo := range userOrgs {
-		if uo.Organization != nil {
-			orgInfo := map[string]interface{}{
-				"id":         uo.OrganizationID,
-				"name":       uo.Organization.Name,
-				"is_primary": uo.IsPrimary,
-				"position":   uo.Position,
-			}
-			orgs = append(orgs, orgInfo)
-			if uo.IsPrimary {
-				primaryOrgName = uo.Organization.Name
-			}
+	utils.SuccessResponse(c, gin.H{
+		"token": token,
+		"user":  userWithOrg,
+	})
+}
+
+func (h *AuthHandler) PhonePasswordLogin(c *gin.Context) {
+	var req PhonePasswordLoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "请提供有效的登录凭证")
+		return
+	}
+
+	cc, phone := normalizePhone(req.PhoneCountryCode, req.PhoneNumber)
+
+	// S-3: 暴力破解防护
+	rateLimitKey := fmt.Sprintf("phone_login:%s:%s", c.ClientIP(), phone)
+	if checkLoginRateLimit(rateLimitKey) {
+		log.Printf("[Security] Phone login rate limited: IP=%s, phone=%s", c.ClientIP(), phone)
+		utils.TooManyRequests(c, 15)
+		return
+	}
+
+	var user models.User
+	if err := h.db.Where("phone_country_code = ? AND phone_number = ?", cc, phone).First(&user).Error; err != nil {
+		recordLoginFailure(rateLimitKey)
+		utils.Unauthorized(c, "手机号或密码错误")
+		return
+	}
+
+	if user.Status != "active" {
+		utils.Forbidden(c, "账户已被禁用")
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+		recordLoginFailure(rateLimitKey)
+		log.Printf("[PhoneLogin] Password mismatch for %s from IP %s", phone, c.ClientIP())
+		utils.Unauthorized(c, "手机号或密码错误")
+		return
+	}
+
+	// 登录成功，清除限制记录
+	clearLoginAttempts(rateLimitKey)
+
+	// M-9: 使用抽取的组织校验函数
+	var primaryOrgID string
+	var userOrg models.UserOrganization
+	if err := h.db.Preload("Organization").Where("user_id = ? AND is_primary = ?", user.ID, true).First(&userOrg).Error; err == nil {
+		if msg, ok := checkOrgServiceValid(userOrg.Organization); !ok {
+			utils.Forbidden(c, msg)
+			return
 		}
+		primaryOrgID = userOrg.OrganizationID
 	}
 
-	// 构建包含组织信息的用户响应
-	userResp := user.ToResponse()
-	userWithOrg := map[string]interface{}{
-		"id":                 userResp.ID,
-		"email":              userResp.Email,
-		"phone_country_code": userResp.PhoneCountryCode,
-		"phone_number":       userResp.PhoneNumber,
-		"name":               userResp.Name,
-		"role":               userResp.Role,
-		"permissions":        userResp.Permissions,
-		"status":             userResp.Status,
-		"avatar":             userResp.Avatar,
-		"last_login":         now,
-		"created_at":         userResp.CreatedAt,
-		"updated_at":         userResp.UpdatedAt,
-		"organizations":      orgs,
-		"primary_org_name":   primaryOrgName,
+	token, err := utils.GenerateToken(user.ID, strings.TrimSpace(cc+" "+phone), user.Role, primaryOrgID)
+	if err != nil {
+		utils.InternalError(c, "生成令牌失败")
+		return
 	}
+
+	now := time.Now()
+	h.db.Model(&user).Update("last_login", now)
+
+	// G-6: 使用公共函数构建响应
+	_, userWithOrg := buildLoginResponse(h.db, &user, now)
 
 	utils.SuccessResponse(c, gin.H{
 		"token": token,
@@ -314,7 +501,7 @@ func (h *AuthHandler) SendSMSCode(c *gin.Context) {
 	rec := models.AuthVerificationCode{Scene: req.Scene, PhoneCountryCode: cc, PhoneNumber: phone, CodeHash: codeHash(cc, phone, code, req.Scene), ExpiresAt: time.Now().Add(5 * time.Minute), RequestIP: c.ClientIP()}
 	h.db.Create(&rec)
 	resp := gin.H{"cooldown_seconds": 60}
-	if config.AppConfig != nil && config.AppConfig.Mode != "release" {
+	if config.AppConfig != nil && config.AppConfig.Mode == "debug" {
 		resp["debug_code"] = code
 	}
 	utils.SuccessResponse(c, resp)
@@ -353,6 +540,15 @@ func (h *AuthHandler) SMSLogin(c *gin.Context) {
 		utils.SuccessResponse(c, gin.H{"need_select_org": true, "token_temp": tokenTemp, "orgs": orgs})
 		return
 	}
+
+	var lastOrg models.Organization
+	if err := h.db.Select("service_status, service_end").First(&lastOrg, "id = ?", *user.LastOrgID).Error; err == nil {
+		if msg, ok := checkOrgServiceValid(&lastOrg); !ok {
+			utils.Forbidden(c, msg)
+			return
+		}
+	}
+
 	token, err := utils.GenerateToken(user.ID, user.Email, user.Role, *user.LastOrgID)
 	if err != nil {
 		utils.InternalError(c, "生成令牌失败")
@@ -371,8 +567,12 @@ func (h *AuthHandler) SelectOrg(c *gin.Context) {
 		return
 	}
 	var uo models.UserOrganization
-	if err := h.db.Where("user_id = ? AND organization_id = ?", userID, req.OrgID).First(&uo).Error; err != nil {
+	if err := h.db.Preload("Organization").Where("user_id = ? AND organization_id = ?", userID, req.OrgID).First(&uo).Error; err != nil {
 		utils.Forbidden(c, "无权限访问该机构")
+		return
+	}
+	if msg, ok := checkOrgServiceValid(uo.Organization); !ok {
+		utils.Forbidden(c, msg)
 		return
 	}
 	var user models.User

@@ -14,6 +14,7 @@ type DeviceTrack struct {
 	Longitude float64 `gorm:"type:decimal(10,7);not null" json:"longitude"`
 	Speed     float64 `gorm:"type:decimal(8,2);default:0" json:"speed"`
 	Direction float64 `gorm:"type:decimal(5,2);default:0" json:"direction"`
+	RunStatus int     `gorm:"default:0" json:"run_status"` // 设备运行状态: 1=行驶, 2=静止, etc.
 
 	// 传感器数据
 	Temperature *float64 `gorm:"type:decimal(5,2)" json:"temperature"`

@@ -125,6 +125,23 @@ func (h *UserHandler) Create(c *gin.Context) {
 		return
 	}
 
+	if req.PhoneNumber != nil && *req.PhoneNumber != "" {
+		cc, phone := normalizePhone(req.PhoneCountryCode, *req.PhoneNumber)
+		req.PhoneCountryCode = cc
+		req.PhoneNumber = &phone
+
+		var phoneCount int64
+		h.db.Model(&models.User{}).Where("phone_country_code = ? AND phone_number = ?", cc, phone).Count(&phoneCount)
+		if phoneCount > 0 {
+			utils.BadRequest(c, "该手机号已被注册")
+			return
+		}
+	} else {
+		if req.PhoneCountryCode == "" {
+			req.PhoneCountryCode = "+86"
+		}
+	}
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		utils.InternalError(c, "密码加密失败")
@@ -140,10 +157,6 @@ func (h *UserHandler) Create(c *gin.Context) {
 		PhoneCountryCode: req.PhoneCountryCode,
 		PhoneNumber:      req.PhoneNumber,
 		Status:           "active",
-	}
-
-	if user.PhoneCountryCode == "" {
-		user.PhoneCountryCode = "+86"
 	}
 
 	if user.Role == "" {
@@ -211,17 +224,40 @@ func (h *UserHandler) Update(c *gin.Context) {
 			updates["permissions"] = perms
 		}
 	}
+	hasPhoneUpdate := false
+	newPhone := user.PhoneNumber
+	newCc := user.PhoneCountryCode
+
 	if v, ok := payload["phone_country_code"]; ok {
 		if cc, ok2 := v.(string); ok2 {
-			updates["phone_country_code"] = cc
+			newCc = cc
+			hasPhoneUpdate = true
 		}
 	}
 	if v, ok := payload["phone_number"]; ok {
 		if v == nil {
 			updates["phone_number"] = nil
+			newPhone = nil
+			hasPhoneUpdate = false // no need to check conflict if removing phone
 		} else if phone, ok2 := v.(string); ok2 {
-			updates["phone_number"] = phone
+			newPhone = &phone
+			hasPhoneUpdate = true
 		}
+	}
+
+	if hasPhoneUpdate && newPhone != nil && *newPhone != "" {
+		normCc, normPhone := normalizePhone(newCc, *newPhone)
+		updates["phone_country_code"] = normCc
+		updates["phone_number"] = normPhone
+
+		var phoneCount int64
+		h.db.Model(&models.User{}).Where("phone_country_code = ? AND phone_number = ? AND id != ?", normCc, normPhone, id).Count(&phoneCount)
+		if phoneCount > 0 {
+			utils.BadRequest(c, "该手机号已被其他账号注册")
+			return
+		}
+	} else if hasPhoneUpdate && (newPhone == nil || *newPhone == "") {
+		updates["phone_country_code"] = newCc
 	}
 
 	if err := h.db.Model(&user).Updates(updates).Error; err != nil {

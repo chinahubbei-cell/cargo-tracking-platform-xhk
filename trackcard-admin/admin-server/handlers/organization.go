@@ -29,8 +29,11 @@ func (p *PaginationParams) Normalize() {
 	if p.Page < 1 {
 		p.Page = 1
 	}
-	if p.PageSize < 1 || p.PageSize > 100 {
+	if p.PageSize < 1 {
 		p.PageSize = 20
+	}
+	if p.PageSize > 1000 {
+		p.PageSize = 1000
 	}
 }
 
@@ -54,6 +57,9 @@ func (h *OrganizationHandler) List(c *gin.Context) {
 			"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
 	}
 
+	// 仅展示一级和二级机构
+	query = query.Where("level <= ?", 2)
+
 	// 获取总数
 	query.Count(&total)
 
@@ -61,11 +67,30 @@ func (h *OrganizationHandler) List(c *gin.Context) {
 	offset := (page.Page - 1) * page.PageSize
 	query.Order("created_at DESC").Offset(offset).Limit(page.PageSize).Find(&orgs)
 
-	// 批量获取设备统计（避免N+1）
+	// 批量获取设备统计（避免N+1）及父级名称
 	if len(orgs) > 0 {
 		orgIDs := make([]string, len(orgs))
+		var parentIDs []string
 		for i, org := range orgs {
 			orgIDs[i] = org.ID
+			if org.ParentID != "" {
+				parentIDs = append(parentIDs, org.ParentID)
+			}
+		}
+
+		// 获取上级组织
+		if len(parentIDs) > 0 {
+			var parents []models.Organization
+			h.db.Where("id IN ?", parentIDs).Find(&parents)
+			parentMap := make(map[string]string)
+			for _, p := range parents {
+				parentMap[p.ID] = p.Name
+			}
+			for i := range orgs {
+				if orgs[i].ParentID != "" {
+					orgs[i].ParentName = parentMap[orgs[i].ParentID]
+				}
+			}
 		}
 
 		type DeviceCount struct {
@@ -103,6 +128,7 @@ func (h *OrganizationHandler) List(c *gin.Context) {
 // CreateOrgRequest 创建组织请求
 type CreateOrgRequest struct {
 	Name         string `json:"name" binding:"required"`
+	ParentID     string `json:"parent_id"`
 	ShortName    string `json:"short_name"`
 	ContactName  string `json:"contact_name"`
 	ContactPhone string `json:"contact_phone"`
@@ -126,8 +152,19 @@ func (h *OrganizationHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// 确定层级
+	level := 1
+	if req.ParentID != "" {
+		var parentOrg models.Organization
+		if h.db.First(&parentOrg, "id = ?", req.ParentID).Error == nil {
+			level = parentOrg.Level + 1
+		}
+	}
+
 	org := models.Organization{
 		Name:          req.Name,
+		ParentID:      req.ParentID,
+		Level:         level,
 		ShortName:     req.ShortName,
 		ContactName:   req.ContactName,
 		ContactPhone:  req.ContactPhone,
@@ -172,13 +209,20 @@ func (h *OrganizationHandler) Get(c *gin.Context) {
 
 // UpdateOrgRequest 更新组织请求（白名单字段）
 type UpdateOrgRequest struct {
-	Name         *string `json:"name"`
-	ShortName    *string `json:"short_name"`
-	ContactName  *string `json:"contact_name"`
-	ContactPhone *string `json:"contact_phone"`
-	ContactEmail *string `json:"contact_email"`
-	Address      *string `json:"address"`
-	Remark       *string `json:"remark"`
+	Name          *string `json:"name"`
+	ParentID      *string `json:"parent_id"`
+	ShortName     *string `json:"short_name"`
+	ContactName   *string `json:"contact_name"`
+	ContactPhone  *string `json:"contact_phone"`
+	ContactEmail  *string `json:"contact_email"`
+	Address       *string `json:"address"`
+	Remark        *string `json:"remark"`
+	ServiceStatus *string `json:"service_status"`
+	ServiceStart  *string `json:"service_start"`
+	ServiceEnd    *string `json:"service_end"`
+	MaxDevices    *int    `json:"max_devices"`
+	MaxUsers      *int    `json:"max_users"`
+	MaxShipments  *int    `json:"max_shipments"`
 }
 
 // Update 更新组织（白名单限制）
@@ -208,6 +252,17 @@ func (h *OrganizationHandler) Update(c *gin.Context) {
 		}
 		updates["name"] = *req.Name
 	}
+	if req.ParentID != nil {
+		updates["parent_id"] = *req.ParentID
+		if *req.ParentID != "" {
+			var parentOrg models.Organization
+			if h.db.First(&parentOrg, "id = ?", *req.ParentID).Error == nil {
+				updates["level"] = parentOrg.Level + 1
+			}
+		} else {
+			updates["level"] = 1
+		}
+	}
 	if req.ShortName != nil {
 		updates["short_name"] = *req.ShortName
 	}
@@ -225,6 +280,40 @@ func (h *OrganizationHandler) Update(c *gin.Context) {
 	}
 	if req.Remark != nil {
 		updates["remark"] = *req.Remark
+	}
+	if req.ServiceStatus != nil {
+		updates["service_status"] = *req.ServiceStatus
+	}
+	if req.ServiceStart != nil {
+		if *req.ServiceStart == "" {
+			updates["service_start"] = nil
+		} else {
+			if t, err := time.Parse(time.RFC3339Nano, *req.ServiceStart); err == nil {
+				updates["service_start"] = t
+			} else if t, err := time.Parse(time.RFC3339, *req.ServiceStart); err == nil {
+				updates["service_start"] = t
+			}
+		}
+	}
+	if req.ServiceEnd != nil {
+		if *req.ServiceEnd == "" {
+			updates["service_end"] = nil
+		} else {
+			if t, err := time.Parse(time.RFC3339Nano, *req.ServiceEnd); err == nil {
+				updates["service_end"] = t
+			} else if t, err := time.Parse(time.RFC3339, *req.ServiceEnd); err == nil {
+				updates["service_end"] = t
+			}
+		}
+	}
+	if req.MaxDevices != nil {
+		updates["max_devices"] = *req.MaxDevices
+	}
+	if req.MaxUsers != nil {
+		updates["max_users"] = *req.MaxUsers
+	}
+	if req.MaxShipments != nil {
+		updates["max_shipments"] = *req.MaxShipments
 	}
 
 	if len(updates) > 0 {

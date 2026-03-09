@@ -162,6 +162,19 @@ func (h *DeviceHandler) syncHardwareDevicesFromBusiness() {
 	}
 }
 
+type DeviceListItem struct {
+	models.HardwareDevice
+	ServiceStatus *string    `json:"service_status"`
+	LocateType    *int       `json:"locate_type"`
+	Battery       *int       `json:"battery"`
+	Temperature   *float64   `json:"temperature"`
+	Humidity      *float64   `json:"humidity"`
+	Latitude      *float64   `json:"latitude"`
+	Longitude     *float64   `json:"longitude"`
+	ServiceEndAt  *time.Time `json:"service_end_at"`
+	LastUpdate    *time.Time `json:"last_update"`
+}
+
 // List 获取设备列表（带分页）
 func (h *DeviceHandler) List(c *gin.Context) {
 	var page PaginationParams
@@ -169,21 +182,23 @@ func (h *DeviceHandler) List(c *gin.Context) {
 	page.Normalize()
 
 	var total int64
-	var devices []models.HardwareDevice
+	var devices []DeviceListItem
 
-	query := h.db.Model(&models.HardwareDevice{})
+	query := h.db.Model(&models.HardwareDevice{}).
+		Select("hardware_devices.*, d.service_status, d.locate_type, d.battery, d.temperature, d.humidity, d.latitude, d.longitude, d.service_end_at, d.last_update").
+		Joins("LEFT JOIN devices d ON (hardware_devices.id = d.id OR (hardware_devices.imei != '' AND hardware_devices.imei = d.external_device_id)) AND d.deleted_at IS NULL")
 
 	if status := c.Query("status"); status != "" {
-		query = query.Where("status = ?", status)
+		query = query.Where("hardware_devices.status = ?", status)
 	}
 	if orgID := c.Query("org_id"); orgID != "" {
-		query = query.Where("org_id = ?", orgID)
+		query = query.Where("hardware_devices.org_id = ?", orgID)
 	}
 	if deviceType := c.Query("type"); deviceType != "" {
-		query = query.Where("device_type = ?", deviceType)
+		query = query.Where("hardware_devices.device_type = ?", deviceType)
 	}
 	if keyword := c.Query("keyword"); keyword != "" {
-		query = query.Where("imei LIKE ? OR sn LIKE ? OR org_name LIKE ?",
+		query = query.Where("hardware_devices.imei LIKE ? OR hardware_devices.sn LIKE ? OR hardware_devices.org_name LIKE ?",
 			"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
 	}
 
@@ -194,7 +209,7 @@ func (h *DeviceHandler) List(c *gin.Context) {
 
 	// 分页
 	offset := (page.Page - 1) * page.PageSize
-	query.Order("created_at DESC").Offset(offset).Limit(page.PageSize).Find(&devices)
+	query.Order("hardware_devices.created_at DESC").Offset(offset).Limit(page.PageSize).Find(&devices)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

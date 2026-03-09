@@ -21,10 +21,3 @@ export const downloadExcel = (buffer: ArrayBuffer, filename: string): void => {
     saveAs(blob, fullFilename);
 };
 
-/**
- * 下载PNG图片
- */
-export const downloadPng = (blob: Blob, filename: string): void => {
-    const fullFilename = filename.endsWith('.png') ? filename : `${filename}.png`;
-    saveAs(blob, fullFilename);
-};

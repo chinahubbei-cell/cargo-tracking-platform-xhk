@@ -73,7 +73,7 @@ const ViewportFilter: React.FC<ViewportFilterProps> = ({ ports, showGeofences, o
 
         debounceRef.current = setTimeout(() => {
             const bounds = map.getBounds();
-            // const zoom = map.getZoom(); // Unused
+
 
             // 过滤可见港口
             const visible = ports.filter(p =>
@@ -130,7 +130,6 @@ interface PortGeofenceMapProps {
 
 const PortGeofenceMap: React.FC<PortGeofenceMapProps> = ({
     height = '600px',
-    // showLabels = false, // Unused
     filterCountry,
     onPortClick
 }) => {

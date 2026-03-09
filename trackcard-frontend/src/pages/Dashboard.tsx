@@ -544,7 +544,7 @@ const Dashboard: React.FC = () => {
                         <div>提示：</div>
                         <ul style={{ marginTop: 8, paddingLeft: 20 }}>
                             <li>输入运单号或包含"运单"关键词将跳转到运单管理</li>
-                            <li>输入小黑卡设备ID号(以8681开头)将跳转到设备管理</li>
+                            <li>输入小黑卡设备号(以8681开头)将跳转到设备管理</li>
                         </ul>
                     </div>
                 </div>

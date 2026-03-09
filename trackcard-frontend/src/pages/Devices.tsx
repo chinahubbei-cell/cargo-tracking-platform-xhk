@@ -40,6 +40,9 @@ interface DeviceData {
     bound_transport_type?: string;
     bound_cargo_name?: string;
     bound_shipment_id?: string;
+    locate_type?: number;
+    service_end_at?: string;
+    org_name?: string;
 }
 
 interface TrackPoint {
@@ -231,7 +234,7 @@ const Devices: React.FC = () => {
 
     const handleLoadTrack = async () => {
         if (!trackDeviceId) {
-            message.warning('请输入设备ID');
+            message.warning('请输入设备号');
             return;
         }
 
@@ -406,43 +409,15 @@ const Devices: React.FC = () => {
             },
         },
         {
-            title: '设备ID号',
+            title: '设备号',
             dataIndex: 'external_device_id',
             key: 'external_device_id',
-            width: 160,
+            width: 180,
             render: (value: string, record: DeviceData) => (
-                <a onClick={() => handleDeviceClick(record)} style={{ color: '#1890ff', cursor: 'pointer' }}>
+                <a onClick={() => handleDeviceClick(record)} style={{ color: '#1890ff', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                     {value || '-'}
                 </a>
             ),
-        },
-        {
-            title: '运输类型',
-            dataIndex: 'type',
-            key: 'type',
-            width: 100,
-            render: (_: string, record: DeviceData) => {
-                const transportType = record.bound_transport_type;
-                if (!transportType) {
-                    return <Tag color="default">-</Tag>;
-                }
-                const typeMap: Record<string, { label: string; color: string }> = {
-                    sea: { label: '海运', color: 'blue' },
-                    air: { label: '空运', color: 'cyan' },
-                    land: { label: '陆运', color: 'green' },
-                    rail: { label: '铁路', color: 'orange' },
-                    multimodal: { label: '多式联运', color: 'purple' },
-                };
-                const config = typeMap[transportType] || { label: transportType, color: 'default' };
-                return <Tag color={config.color}>{config.label}</Tag>;
-            },
-        },
-        {
-            title: '货物名称',
-            dataIndex: 'bound_cargo_name',
-            key: 'bound_cargo_name',
-            width: 150,
-            render: (value: string) => value || '-',
         },
         {
             title: '使用状态',
@@ -456,34 +431,77 @@ const Devices: React.FC = () => {
             ),
         },
         {
-            title: '组织机构',
-            dataIndex: 'org_name',
-            key: 'org_name',
-            width: 200,
-            ellipsis: true,
-            render: (value: string) => value || <span style={{ color: '#999' }}>-</span>,
-        },
-        {
-            title: '供应商',
-            dataIndex: 'provider',
-            key: 'provider',
+            title: '运输类型',
+            dataIndex: 'bound_transport_type',
+            key: 'bound_transport_type',
             width: 100,
             render: (value: string) => {
-                const provider = value || 'unknown';
-                const config = PROVIDERS[provider] || { label: provider, color: 'default' };
+                if (!value) {
+                    return <Tag color="default">-</Tag>;
+                }
+                const typeMap: Record<string, { label: string; color: string }> = {
+                    sea: { label: '海运', color: 'blue' },
+                    air: { label: '空运', color: 'cyan' },
+                    land: { label: '陆运', color: 'green' },
+                    rail: { label: '铁路', color: 'orange' },
+                    multimodal: { label: '多式联运', color: 'purple' },
+                };
+                const config = typeMap[value] || { label: value, color: 'default' };
                 return <Tag color={config.color}>{config.label}</Tag>;
             },
         },
         {
-            title: '状态',
+            title: '货物名称',
+            dataIndex: 'bound_cargo_name',
+            key: 'bound_cargo_name',
+            width: 150,
+            render: (value: string) => value || '-',
+        },
+        {
+            title: '设备型号',
+            dataIndex: 'type',
+            key: 'type',
+            width: 120,
+            render: (value: string) => value || '-',
+        },
+        {
+            title: '设备状态',
             dataIndex: 'status',
             key: 'status',
-            width: 80,
+            width: 100,
             render: (value: string) => (
                 <Tag color={value === 'online' ? 'green' : 'default'}>
                     {value === 'online' ? '在线' : '离线'}
                 </Tag>
             ),
+        },
+        {
+            title: '定位模式',
+            dataIndex: 'locate_type',
+            key: 'locate_type',
+            width: 100,
+            render: (value: number | undefined) => {
+                if (value === undefined || value === null) return '-';
+                const typeMap: Record<number, string> = {
+                    0: '基站定位',
+                    1: 'GPS定位',
+                    2: '北斗定位',
+                    3: 'WIFI定位',
+                };
+                return typeMap[value] || `模式${value}`;
+            },
+        },
+        {
+            title: '定位类型',
+            key: 'loc_type_placeholder',
+            width: 100,
+            render: () => '-',
+        },
+        {
+            title: '定位周期',
+            key: 'loc_period_placeholder',
+            width: 100,
+            render: () => '-',
         },
         {
             title: '电量',
@@ -497,11 +515,16 @@ const Devices: React.FC = () => {
             },
         },
         {
-            title: '速度',
-            dataIndex: 'speed',
-            key: 'speed',
-            width: 90,
-            render: (value: number) => `${value || 0} km/h`,
+            title: '剩余工作时长',
+            key: 'remaining_time_placeholder',
+            width: 120,
+            render: () => '-',
+        },
+        {
+            title: '充电状态',
+            key: 'charging_status_placeholder',
+            width: 100,
+            render: () => '-',
         },
         {
             title: '温度',
@@ -518,9 +541,53 @@ const Devices: React.FC = () => {
             render: (value: number) => value ? `${value.toFixed(1)}%` : '-',
         },
         {
-            title: '最后更新',
+            title: '最后一次定位时间',
             dataIndex: 'last_update',
             key: 'last_update',
+            width: 170,
+            render: (value: string) => value ? new Date(value).toLocaleString('zh-CN') : '-',
+        },
+        {
+            title: '当前位置',
+            key: 'current_location',
+            width: 180,
+            render: (_: unknown, record: DeviceData) => {
+                if (record.longitude && record.latitude) {
+                    return `[${record.longitude.toFixed(6)}, ${record.latitude.toFixed(6)}]`;
+                }
+                return '-';
+            },
+        },
+        {
+            title: '供应商',
+            dataIndex: 'provider',
+            key: 'provider',
+            width: 100,
+            render: (value: string) => {
+                const provider = value || 'unknown';
+                const config = PROVIDERS[provider] || { label: provider, color: 'default' };
+                return <Tag color={config.color}>{config.label}</Tag>;
+            },
+        },
+        {
+            title: '组织机构',
+            dataIndex: 'org_name',
+            key: 'org_name',
+            width: 200,
+            ellipsis: true,
+            render: (value: string) => value || <span style={{ color: '#999' }}>-</span>,
+        },
+        {
+            title: '创建时间',
+            dataIndex: 'created_at',
+            key: 'created_at',
+            width: 170,
+            render: (value: string) => value ? new Date(value).toLocaleString('zh-CN') : '-',
+        },
+        {
+            title: '到期时间',
+            dataIndex: 'service_end_at',
+            key: 'service_end_at',
             width: 170,
             render: (value: string) => value ? new Date(value).toLocaleString('zh-CN') : '-',
         },
@@ -566,22 +633,26 @@ const Devices: React.FC = () => {
 
         const excelData = filteredDevices.map((d, index) => ({
             '序号': index + 1,
-            '设备ID号': d.external_device_id || '',
-            '设备名称': d.name || '',
+            '设备号': d.external_device_id || '',
+            '使用状态': bindingStatusMap[d.binding_status || ''] || '未绑定',
             '运输类型': transportTypeMap[d.bound_transport_type || ''] || '-',
             '货物名称': d.bound_cargo_name || '-',
-            '使用状态': bindingStatusMap[d.binding_status || ''] || '未绑定',
-            '绑定运单号': d.bound_shipment_id || '-',
-            '供应商': PROVIDERS[d.provider]?.label || d.provider || '-',
+            '设备型号': d.type || '-',
             '设备状态': statusMap[d.status] || d.status || '-',
+            '定位模式': d.locate_type !== undefined ? d.locate_type : '-',
+            '定位类型': '-',
+            '定位周期': '-',
             '电量(%)': d.battery || 0,
-            '速度(km/h)': d.speed || 0,
+            '剩余工作时长': '-',
+            '充电状态': '-',
             '温度(°C)': d.temperature ? d.temperature.toFixed(1) : '-',
             '湿度(%)': d.humidity ? d.humidity.toFixed(1) : '-',
-            '经度': d.longitude || '-',
-            '纬度': d.latitude || '-',
-            '最后更新': d.last_update ? new Date(d.last_update).toLocaleString('zh-CN') : '-',
+            '最后一次定位时间': d.last_update ? new Date(d.last_update).toLocaleString('zh-CN') : '-',
+            '当前位置': (d.longitude && d.latitude) ? `[${d.longitude.toFixed(6)}, ${d.latitude.toFixed(6)}]` : '-',
+            '供应商': PROVIDERS[d.provider]?.label || d.provider || '-',
+            '组织机构': d.org_name || '-',
             '创建时间': d.created_at ? new Date(d.created_at).toLocaleString('zh-CN') : '-',
+            '到期时间': d.service_end_at ? new Date(d.service_end_at).toLocaleString('zh-CN') : '-',
         }));
 
         const ws = XLSX.utils.json_to_sheet(excelData);
@@ -590,22 +661,26 @@ const Devices: React.FC = () => {
 
         ws['!cols'] = [
             { wch: 6 },   // 序号
-            { wch: 18 },  // 设备ID号
-            { wch: 15 },  // 设备名称
+            { wch: 18 },  // 设备号
+            { wch: 10 },  // 使用状态
             { wch: 12 },  // 运输类型
             { wch: 18 },  // 货物名称
-            { wch: 10 },  // 使用状态
-            { wch: 15 },  // 绑定运单号
-            { wch: 10 },  // 供应商
+            { wch: 15 },  // 设备型号
             { wch: 10 },  // 设备状态
+            { wch: 10 },  // 定位模式
+            { wch: 10 },  // 定位类型
+            { wch: 10 },  // 定位周期
             { wch: 8 },   // 电量
-            { wch: 10 },  // 速度
+            { wch: 12 },  // 剩余工作时长
+            { wch: 10 },  // 充电状态
             { wch: 10 },  // 温度
             { wch: 10 },  // 湿度
-            { wch: 12 },  // 经度
-            { wch: 12 },  // 纬度
-            { wch: 18 },  // 最后更新
+            { wch: 18 },  // 最后一次定位时间
+            { wch: 20 },  // 当前位置
+            { wch: 10 },  // 供应商
+            { wch: 20 },  // 组织机构
             { wch: 18 },  // 创建时间
+            { wch: 18 },  // 到期时间
         ];
 
         // 生成Excel文件并下载
@@ -680,7 +755,7 @@ const Devices: React.FC = () => {
             <div style={{ padding: 16, background: '#fafafa', borderRadius: '8px 8px 0 0' }}>
                 <Space wrap>
                     <Input
-                        placeholder="输入设备ID"
+                        placeholder="输入设备号"
                         value={trackDeviceId}
                         onChange={(e) => setTrackDeviceId(e.target.value)}
                         style={{ width: 200 }}
@@ -716,7 +791,7 @@ const Devices: React.FC = () => {
                     </Suspense>
                 ) : (
                     <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f0f2f5' }}>
-                        <Empty description="请输入设备ID并加载轨迹数据" />
+                        <Empty description="请输入设备号并加载轨迹数据" />
                     </div>
                 )}
             </div>
@@ -889,8 +964,8 @@ const Devices: React.FC = () => {
                             <Select.Option value="sinoiov">中交兴路</Select.Option>
                         </Select>
                     </Form.Item>
-                    <Form.Item name="external_device_id" label="设备ID号" rules={[{ required: true, message: '请输入设备ID号' }]}>
-                        <Input placeholder="868120342395412" />
+                    <Form.Item name="external_device_id" label="设备号" rules={[{ required: true, message: '请输入设备号' }]}>
+                        <Input placeholder="例如: 868120342395412" />
                     </Form.Item>
                 </Form>
             </Modal>

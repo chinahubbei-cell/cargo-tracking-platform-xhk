@@ -9,6 +9,8 @@ import {
     LogoutOutlined,
     MenuFoldOutlined,
     MenuUnfoldOutlined,
+    AuditOutlined,
+    UnorderedListOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -78,7 +80,7 @@ const MainLayout: React.FC = () => {
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: '#fff',
-                    fontSize: collapsed ? 16 : 18,
+                    fontSize: collapsed ? 19 : 21,
                     fontWeight: 600,
                     background: 'rgba(255,255,255,0.1)',
                 }}>

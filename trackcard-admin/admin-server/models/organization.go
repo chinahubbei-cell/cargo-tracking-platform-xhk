@@ -50,11 +50,21 @@ func (u *AdminUser) CheckPassword(password string) bool {
 type Organization struct {
 	ID           string `gorm:"primaryKey" json:"id"`
 	Name         string `gorm:"size:200;not null" json:"name"`
+	Code         string `gorm:"size:50" json:"code"`
 	ShortName    string `gorm:"size:50" json:"short_name"`
 	ContactName  string `gorm:"size:100" json:"contact_name"`
 	ContactPhone string `gorm:"size:20" json:"contact_phone"`
 	ContactEmail string `gorm:"size:100" json:"contact_email"`
 	Address      string `gorm:"size:500" json:"address"`
+
+	// 层级架构
+	ParentID string `gorm:"size:50;index" json:"parent_id"`
+	Type     string `gorm:"size:20;default:'dept'" json:"type"`
+	Level    int    `gorm:"default:1" json:"level"`
+	Path     string `gorm:"size:500" json:"path"`
+
+	// 扩展字段(非入库)
+	ParentName string `gorm:"-" json:"parent_name"`
 
 	// 服务配置
 	ServiceStatus string     `gorm:"size:20;default:trial" json:"service_status"` // trial, active, suspended, expired
@@ -79,7 +89,10 @@ type Organization struct {
 
 func (o *Organization) BeforeCreate(tx *gorm.DB) error {
 	if o.ID == "" {
-		o.ID = uuid.New().String()
+		o.ID = "org-" + uuid.New().String()[:8]
+	}
+	if o.Code == "" {
+		o.Code = "ORG" + time.Now().Format("20060102150405")
 	}
 	return nil
 }

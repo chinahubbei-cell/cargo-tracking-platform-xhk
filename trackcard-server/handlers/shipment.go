@@ -1627,16 +1627,15 @@ func (h *ShipmentHandler) GetShipmentTracks(c *gin.Context) {
 		allTracks = append(allTracks, segmentTracks...)
 	}
 
-	// 3. 对合并后的轨迹进行排序（防止多设备时间重叠导致乱序）
-	// sort.Slice(allTracks, func(i, j int) bool {
-	// 	return allTracks[i].LocateTime.Before(allTracks[j].LocateTime)
-	// })
 	// 数据库查询已有序，且绑定时间一般不重叠，直接append通常有序。
-	// 但为了保险起见，如果确实发现了乱序情况再加sort，目前保持性能优先。
+	// 如果确实发现了乱序情况再加sort，目前保持性能优先。
 
-	if len(allTracks) > 10000 {
-		// 简单截断，后续可做抽稀
+	// G-4: 截断时通知前端
+	totalAvailable := len(allTracks)
+	truncated := false
+	if totalAvailable > 10000 {
 		allTracks = allTracks[:10000]
+		truncated = true
 	}
 
 	// 4. 构建current_position（使用当前绑定设备的最新位置，如果没有则为空）
@@ -1683,5 +1682,7 @@ func (h *ShipmentHandler) GetShipmentTracks(c *gin.Context) {
 		"device_ids":       deviceIDs, // 返回所有关联过的设备ID
 		"tracks":           formattedTracks,
 		"current_position": currentPosition,
+		"truncated":        truncated,
+		"total_available":  totalAvailable,
 	})
 }

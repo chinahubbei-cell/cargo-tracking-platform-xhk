@@ -485,8 +485,9 @@ func CalculateDistance(lat1, lon1, lat2, lon2 float64) float64 {
 func (s *DeviceStopService) AnalyzeDeviceTracksAndCreateStops(deviceID, deviceExternalID, shipmentID string, startTime, endTime time.Time) error {
 	// 停留检测参数
 	const (
-		minStopDuration         = 5 * time.Minute // 最短停留时长
-		locationChangeThreshold = 0.1             // 位置变化阈值(公里)，用于判断是否为同一次停留
+		minStopDuration          = 5 * time.Minute // 最短停留时长
+		locationChangeThreshold  = 0.1             // 位置变化阈值(公里)，用于判断是否为同一次停留
+		stationarySpeedThreshold = 2.0             // 低速抖动阈值(<=2 视为可判定停留)
 	)
 
 	// 查询设备轨迹数据
@@ -511,61 +512,84 @@ func (s *DeviceStopService) AnalyzeDeviceTracksAndCreateStops(deviceID, deviceEx
 
 	// 分析停留段
 	type StopSegment struct {
-		StartTime  time.Time
-		EndTime    *time.Time
-		Latitude   float64
-		Longitude  float64
-		TrackCount int
+		StartTime    time.Time
+		EndTime      *time.Time
+		Latitude     float64
+		Longitude    float64
+		TrackCount   int
+		HasZeroSpeed bool
 	}
 
 	var stopSegments []StopSegment
 	var currentStop *StopSegment
 
-	for _, track := range tracks {
-		// 只处理速度为0的轨迹点（停留状态）
-		if track.Speed != 0 {
-			if currentStop != nil {
-				// 结束当前停留段
-				currentStop.EndTime = &track.LocateTime
-				stopSegments = append(stopSegments, *currentStop)
-				currentStop = nil
+	for i, track := range tracks {
+		// 优先使用设备自身上报的真实运行状态(RunStatus: 2=静止)。如果历史数据中无此字段(=0)，则降级使用速度判定
+		trackIsStationary := track.RunStatus == 2 || (track.RunStatus == 0 && track.Speed <= stationarySpeedThreshold)
+		trackIsStrictStop := track.RunStatus == 2 || (track.RunStatus == 0 && track.Speed == 0)
+
+		// 同样，如果是历史兼容降级，双重校验漂移
+		if !trackIsStationary && track.RunStatus == 0 && i > 0 {
+			prevTrack := tracks[i-1]
+			dist := CalculateDistance(prevTrack.Latitude, prevTrack.Longitude, track.Latitude, track.Longitude)
+			timeDiffHours := track.LocateTime.Sub(prevTrack.LocateTime).Hours()
+			if timeDiffHours > 0 {
+				actualSpeed := dist / timeDiffHours
+				if actualSpeed <= stationarySpeedThreshold {
+					trackIsStationary = true
+					if actualSpeed == 0 {
+						trackIsStrictStop = true
+					}
+				}
+			} else if dist == 0 {
+				trackIsStationary = true
+				trackIsStrictStop = true
+			}
+		}
+
+		if currentStop == nil {
+			if !trackIsStationary {
+				continue
+			}
+			currentStop = &StopSegment{
+				StartTime:    track.LocateTime,
+				Latitude:     track.Latitude,
+				Longitude:    track.Longitude,
+				TrackCount:   1,
+				HasZeroSpeed: trackIsStrictStop,
 			}
 			continue
 		}
 
-		// 当前轨迹点速度为0，判断是否属于当前停留段
-		if currentStop == nil {
-			// 开始新的停留段
-			currentStop = &StopSegment{
-				StartTime:  track.LocateTime,
-				Latitude:   track.Latitude,
-				Longitude:  track.Longitude,
-				TrackCount: 1,
+		distance := CalculateDistance(
+			currentStop.Latitude, currentStop.Longitude,
+			track.Latitude, track.Longitude,
+		)
+
+		if trackIsStationary && distance <= locationChangeThreshold {
+			// 低速且位置变化小，视为同一次停留（兼容设备低速抖动）
+			currentStop.TrackCount++
+			currentStop.Latitude = track.Latitude
+			currentStop.Longitude = track.Longitude
+			if trackIsStrictStop {
+				currentStop.HasZeroSpeed = true
 			}
-		} else {
-			// 判断位置变化是否在阈值内
-			distance := CalculateDistance(
-				currentStop.Latitude, currentStop.Longitude,
-				track.Latitude, track.Longitude,
-			)
+			continue
+		}
 
-			if distance <= locationChangeThreshold {
-				// 位置变化较小，属于同一次停留
-				currentStop.TrackCount++
-				// 更新停留位置（取平均或最新位置）
-				currentStop.Latitude = track.Latitude
-				currentStop.Longitude = track.Longitude
-			} else {
-				// 位置变化较大，结束当前停留段，开始新的停留段
-				currentStop.EndTime = &track.LocateTime
-				stopSegments = append(stopSegments, *currentStop)
+		// 出现明确移动或位置漂移，结束当前停留段
+		currentStop.EndTime = &track.LocateTime
+		stopSegments = append(stopSegments, *currentStop)
+		currentStop = nil
 
-				currentStop = &StopSegment{
-					StartTime:  track.LocateTime,
-					Latitude:   track.Latitude,
-					Longitude:  track.Longitude,
-					TrackCount: 1,
-				}
+		// 若当前点仍为低速，启动新的候选停留段
+		if trackIsStationary {
+			currentStop = &StopSegment{
+				StartTime:    track.LocateTime,
+				Latitude:     track.Latitude,
+				Longitude:    track.Longitude,
+				TrackCount:   1,
+				HasZeroSpeed: trackIsStrictStop,
 			}
 		}
 	}
@@ -588,6 +612,10 @@ func (s *DeviceStopService) AnalyzeDeviceTracksAndCreateStops(deviceID, deviceEx
 		}
 
 		duration := segmentDurationEnd.Sub(segment.StartTime)
+		// 纯低速(无 speed=0)且仅单点的片段不入库，避免把慢速行驶误识别成停留
+		if !segment.HasZeroSpeed && segment.TrackCount < 2 {
+			continue
+		}
 		if duration < minStopDuration {
 			continue // 停留时长不足，跳过
 		}
@@ -621,7 +649,14 @@ func (s *DeviceStopService) AnalyzeDeviceTracksAndCreateStops(deviceID, deviceEx
 				existingRecord.EndTime = nil
 				duration = now.Sub(existingRecord.StartTime)
 			} else {
+				actualDuration := segmentEnd.Sub(existingRecord.StartTime)
+				if actualDuration < minStopDuration {
+					// 该记录曾经是 active 被展示，但最终确认生命周期结束且总时长不足 15 分钟，判定为无效停留，予以删除
+					s.db.Unscoped().Delete(&existingRecord)
+					continue
+				}
 				existingRecord.EndTime = segmentEnd
+				duration = actualDuration
 			}
 			existingRecord.Latitude = &segment.Latitude
 			existingRecord.Longitude = &segment.Longitude
@@ -657,9 +692,21 @@ func (s *DeviceStopService) AnalyzeDeviceTracksAndCreateStops(deviceID, deviceEx
 		}
 	}
 
-	// 如果当前窗口最新轨迹点速度不为0，补齐该运单活跃停留记录的结束状态
+	// 如果当前窗口最新轨迹点速度明显高于低速阈值，补齐该运单活跃停留记录的结束状态
 	lastTrack := tracks[len(tracks)-1]
-	if lastTrack.Speed != 0 {
+	lastTrackIsStationary := lastTrack.Speed <= stationarySpeedThreshold
+	if !lastTrackIsStationary && len(tracks) > 1 {
+		prevTrack := tracks[len(tracks)-2]
+		dist := CalculateDistance(prevTrack.Latitude, prevTrack.Longitude, lastTrack.Latitude, lastTrack.Longitude)
+		timeDiffHours := lastTrack.LocateTime.Sub(prevTrack.LocateTime).Hours()
+		if timeDiffHours > 0 && (dist/timeDiffHours) <= stationarySpeedThreshold {
+			lastTrackIsStationary = true
+		} else if timeDiffHours <= 0 && dist == 0 {
+			lastTrackIsStationary = true
+		}
+	}
+
+	if !lastTrackIsStationary {
 		var activeRecords []models.DeviceStopRecord
 		if err := s.db.
 			Where("shipment_id = ? AND device_id = ? AND status = ?", shipmentID, deviceID, "active").

@@ -1,0 +1,19 @@
+/* 全局字体调大 15% */
+page {
+    font-size: 32rpx !important;
+    /* 原基础约 28rpx，调大至 32rpx */
+}
+
+/* NutUI 组件字体适配 */
+.nut-button,
+.nut-input,
+.nut-cell,
+.nut-tabs__titles-item,
+.nut-navbar__title {
+    font-size: 32rpx !important;
+}
+
+.nut-cell__title,
+.nut-cell__value {
+    font-size: 30rpx !important;
+}

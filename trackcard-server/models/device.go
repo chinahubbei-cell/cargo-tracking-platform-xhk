@@ -27,6 +27,10 @@ type Device struct {
 	Light            *float64       `gorm:"type:decimal(5,2)" json:"light"` // 光照 lux
 	LocateType       *int           `gorm:"column:locate_type" json:"locate_type"`
 	OrgID            *string        `gorm:"type:varchar(50);index" json:"org_id"` // 所属组织ID
+	SubAccountID     *string        `gorm:"type:varchar(50);index" json:"sub_account_id"`
+	ServiceStatus    string         `gorm:"type:varchar(20);default:'active'" json:"service_status"`
+	ServiceStartAt   *time.Time     `json:"service_start_at"`
+	ServiceEndAt     *time.Time     `json:"service_end_at"`
 	LastUpdate       time.Time      `gorm:"column:last_update;default:CURRENT_TIMESTAMP" json:"last_update"`
 	CreatedAt        time.Time      `json:"created_at"`
 	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
@@ -47,7 +51,10 @@ type DeviceCreateRequest struct {
 	Latitude         *float64 `json:"latitude"`
 	Longitude        *float64 `json:"longitude"`
 	ExternalDeviceID *string  `json:"external_device_id"`
-	OrgID            *string  `json:"org_id"` // 所属组织ID
+	OrgID            *string  `json:"org_id"`         // 所属组织ID
+	SubAccountID     *string  `json:"sub_account_id"` // 分机构/子账号ID
+	ServiceStartAt   *string  `json:"service_start_at,omitempty"`
+	ServiceEndAt     *string  `json:"service_end_at,omitempty"`
 }
 
 type DeviceUpdateRequest struct {
@@ -59,5 +66,9 @@ type DeviceUpdateRequest struct {
 	Latitude         *float64 `json:"latitude"`
 	Longitude        *float64 `json:"longitude"`
 	ExternalDeviceID *string  `json:"external_device_id"`
-	OrgID            *string  `json:"org_id"` // 所属组织ID
+	OrgID            *string  `json:"org_id"`         // 所属组织ID
+	SubAccountID     *string  `json:"sub_account_id"` // 分机构/子账号ID
+	ServiceStatus    *string  `json:"service_status"`
+	ServiceStartAt   *string  `json:"service_start_at,omitempty"`
+	ServiceEndAt     *string  `json:"service_end_at,omitempty"`
 }

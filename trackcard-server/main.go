@@ -77,6 +77,13 @@ func main() {
 		&models.TransitCityRecord{},  // 运单途经城市记录表
 		&models.AuthVerificationCode{},
 		&models.SMSSendLog{},
+		// 订单管理模型 (V2 全链路)
+		&models.Order{},
+		&models.OrderItem{},
+		&models.Contract{},
+		&models.Payment{},
+		&models.Invoice{},
+		&models.OrderLog{},
 	); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
@@ -224,10 +231,9 @@ func main() {
 	if err := handlers.SeedConfig(db); err != nil {
 		log.Printf("Warning: Failed to seed config: %v", err)
 	}
-	// if err := handlers.SeedDevices(db); err != nil {
-	// 	log.Printf("Warning: Failed to seed devices: %v", err)
-	// }
+
 	// 初始化全球核心港口数据
+
 	if err := seeds.SeedCorePorts(db); err != nil {
 		log.Printf("Warning: Failed to seed core ports: %v", err)
 	}
@@ -325,6 +331,7 @@ func main() {
 	airportHandler := handlers.NewAirportHandler(db)         // 机场管理处理器 (Phase 9新增)
 	miniAppAuthHandler := handlers.NewMiniAppAuthHandler(db) // 小程序认证处理器
 	deviceStopHandler := handlers.NewDeviceStopHandler(db)   // 设备停留记录处理器
+	tradeHandler := handlers.NewTradeHandler(db)             // 交易管理处理器
 
 	// API路由
 	api := r.Group("/api")
@@ -344,6 +351,7 @@ func main() {
 		auth := api.Group("/auth")
 		{
 			auth.POST("/login", authHandler.Login)
+			auth.POST("/login/phone", authHandler.PhonePasswordLogin)
 			auth.POST("/sms/send-code", authHandler.SendSMSCode)
 			auth.POST("/sms/login", authHandler.SMSLogin)
 			auth.POST("/password/reset-by-sms", authHandler.ResetPasswordBySMS)
@@ -367,8 +375,10 @@ func main() {
 		}
 
 		// 需要认证的路由
+		middleware.InitAuthDB(db) // 注入 DB 实例用于 org_id 越权校验
 		protected := api.Group("")
 		protected.Use(middleware.AuthMiddleware())
+		protected.Use(middleware.CheckOrgService(db))      // 相对于普通用户，检查组织服务期限
 		protected.Use(middleware.ShadowModeMiddleware(db)) // Phase 8: 影子模式中间件
 		protected.Use(middleware.AuditMiddleware(db))      // Phase 8: 审计日志中间件
 		{
@@ -394,6 +404,7 @@ func main() {
 				devices.GET("/:id", deviceHandler.Get)
 				devices.POST("", middleware.RequireRole("admin", "operator"), deviceHandler.Create)
 				devices.PUT("/:id", middleware.RequireRole("admin", "operator"), deviceHandler.Update)
+				devices.POST("/:id/assign-sub-account", middleware.RequireRole("admin", "operator"), deviceHandler.AssignSubAccount)
 				devices.DELETE("/:id", middleware.RequireRole("admin"), deviceHandler.Delete)
 				devices.GET("/:id/track", deviceHandler.GetTrack)
 				devices.GET("/:id/history", deviceHandler.GetHistory)
@@ -723,6 +734,19 @@ func main() {
 				geofence.POST("/diagnose", geofenceHandler.DiagnoseShipment)         // 诊断运单围栏状态
 				geofence.POST("/backfill", geofenceHandler.BackfillLogs)             // 补录缺失日志
 				geofence.POST("/trigger/:shipment_id", geofenceHandler.TriggerCheck) // 手动触发围栏检测
+			}
+
+			// 交易管理 (Phase 10: 订单管理模块)
+			trade := protected.Group("/trade")
+			{
+				trade.POST("/orders/purchase", tradeHandler.CreatePurchaseOrder)
+				trade.POST("/orders/renewal", tradeHandler.CreateRenewalOrder)
+				trade.GET("/orders", tradeHandler.ListMyOrders)
+				trade.GET("/orders/:id", tradeHandler.GetOrder)
+				trade.POST("/orders/:id/contract/sign-online", tradeHandler.SignOnline)
+				trade.POST("/orders/:id/contract/upload-offline", tradeHandler.UploadOfflineContract)
+				trade.POST("/orders/:id/payment/create", tradeHandler.CreatePayment)
+				trade.POST("/orders/:id/invoice/apply", tradeHandler.ApplyInvoice)
 			}
 		}
 	}

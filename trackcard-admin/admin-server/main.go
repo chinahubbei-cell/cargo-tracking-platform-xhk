@@ -64,16 +64,32 @@ func main() {
 			protected.POST("/orgs/:id/renew", orgHandler.Renew)
 			protected.GET("/orgs/expiring", orgHandler.GetExpiring)
 
-			// 订单管理
+			// 订单管理(旧版保留兼容)
 			orderHandler := handlers.NewOrderHandler(db)
-			protected.GET("/orders", orderHandler.List)
-			protected.POST("/orders", orderHandler.Create)
-			protected.GET("/orders/:id", orderHandler.Get)
-			protected.PUT("/orders/:id", orderHandler.Update)
-			protected.PUT("/orders/:id/confirm", orderHandler.Confirm)
-			protected.PUT("/orders/:id/ship", orderHandler.Ship)
-			protected.PUT("/orders/:id/complete", orderHandler.Complete)
-			protected.PUT("/orders/:id/cancel", orderHandler.Cancel)
+			protected.GET("/orders-legacy", orderHandler.List)
+			protected.POST("/orders-legacy", orderHandler.Create)
+			protected.GET("/orders-legacy/:id", orderHandler.Get)
+			protected.PUT("/orders-legacy/:id", orderHandler.Update)
+			protected.PUT("/orders-legacy/:id/confirm", orderHandler.Confirm)
+			protected.PUT("/orders-legacy/:id/ship", orderHandler.Ship)
+			protected.PUT("/orders-legacy/:id/complete", orderHandler.Complete)
+			protected.PUT("/orders-legacy/:id/cancel", orderHandler.Cancel)
+
+			// 订单管理 V2（新购/续费全链路）
+			orderV2 := handlers.NewOrderV2Handler(db)
+			protected.GET("/orders", orderV2.List)
+			protected.POST("/orders", orderV2.Create)
+			protected.GET("/orders/:id", orderV2.Get)
+			protected.POST("/orders/:id/submit-review", orderV2.SubmitReview)
+			protected.POST("/orders/:id/review", orderV2.Review)
+			protected.POST("/orders/:id/contract/generate", orderV2.GenerateContract)
+			protected.POST("/orders/:id/contract/confirm-offline", orderV2.ConfirmOfflineSign)
+			protected.POST("/orders/:id/payment/confirm", orderV2.ConfirmPayment)
+			protected.POST("/orders/:id/void", orderV2.Void)
+			protected.POST("/orders/:id/invoice/review", orderV2.InvoiceReview)
+			protected.POST("/orders/:id/invoice/issue", orderV2.IssueInvoice)
+			protected.POST("/orders/:id/fulfilling", orderV2.StartFulfilling)
+			protected.POST("/orders/:id/complete", orderV2.Complete)
 
 			// 设备管理
 			deviceHandler := handlers.NewDeviceHandler(db)
@@ -148,6 +164,13 @@ func autoMigrate(db *gorm.DB) {
 		&models.ServiceRenewal{},
 		&models.HardwareDevice{},
 		&models.DeviceAllocationLog{},
+		// V2 订单管理模型
+		&models.Order{},
+		&models.OrderItem{},
+		&models.Contract{},
+		&models.Payment{},
+		&models.Invoice{},
+		&models.OrderLog{},
 	)
 	log.Println("[Admin] 数据库迁移完成")
 }

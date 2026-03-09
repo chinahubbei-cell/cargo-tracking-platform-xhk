@@ -32,6 +32,10 @@ type Organization struct {
 	LeaderID    *string          `gorm:"type:varchar(50)" json:"leader_id"` // 负责人ID
 	Description *string          `gorm:"type:varchar(500)" json:"description"`
 
+	ServiceStatus string     `gorm:"type:varchar(20);default:'active'" json:"service_status"`
+	ServiceStart  *time.Time `json:"service_start"`
+	ServiceEnd    *time.Time `json:"service_end"`
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -61,12 +65,15 @@ type OrganizationResponse struct {
 	Sort        int                    `json:"sort"`
 	Status      string                 `json:"status"`
 	LeaderID    *string                `json:"leader_id"`
-	LeaderName  string                 `json:"leader_name,omitempty"`
-	Description *string                `json:"description"`
-	UserCount   int                    `json:"user_count"`   // 用户数量
-	DeviceCount int                    `json:"device_count"` // 设备数量
-	CreatedAt   time.Time              `json:"created_at"`
-	UpdatedAt   time.Time              `json:"updated_at"`
+	LeaderName    string                 `json:"leader_name,omitempty"`
+	Description   *string                `json:"description"`
+	ServiceStatus string                 `json:"service_status"`
+	ServiceStart  *time.Time             `json:"service_start"`
+	ServiceEnd    *time.Time             `json:"service_end"`
+	UserCount     int                    `json:"user_count"`   // 用户数量
+	DeviceCount   int                    `json:"device_count"` // 设备数量
+	CreatedAt     time.Time              `json:"created_at"`
+	UpdatedAt     time.Time              `json:"updated_at"`
 	Children    []OrganizationResponse `json:"children,omitempty"`
 }
 
@@ -80,11 +87,14 @@ func (o *Organization) ToResponse() OrganizationResponse {
 		Level:       o.Level,
 		Path:        o.Path,
 		Sort:        o.Sort,
-		Status:      o.Status,
-		LeaderID:    o.LeaderID,
-		Description: o.Description,
-		CreatedAt:   o.CreatedAt,
-		UpdatedAt:   o.UpdatedAt,
+		Status:        o.Status,
+		LeaderID:      o.LeaderID,
+		Description:   o.Description,
+		ServiceStatus: o.ServiceStatus,
+		ServiceStart:  o.ServiceStart,
+		ServiceEnd:    o.ServiceEnd,
+		CreatedAt:     o.CreatedAt,
+		UpdatedAt:     o.UpdatedAt,
 	}
 	if o.Leader != nil {
 		resp.LeaderName = o.Leader.Name
@@ -149,10 +159,13 @@ type OrganizationTreeNode struct {
 	ParentID    *string                 `json:"parent_id"`
 	Type        OrganizationType        `json:"type"`
 	Level       int                     `json:"level"`
-	Sort        int                     `json:"sort"`
-	Status      string                  `json:"status"`
-	LeaderName  string                  `json:"leader_name,omitempty"`
-	UserCount   int                     `json:"user_count"`
-	DeviceCount int                     `json:"device_count"`
+	Sort          int                     `json:"sort"`
+	Status        string                  `json:"status"`
+	ServiceStatus string                  `json:"service_status"`
+	ServiceStart  *time.Time              `json:"service_start"`
+	ServiceEnd    *time.Time              `json:"service_end"`
+	LeaderName    string                  `json:"leader_name,omitempty"`
+	UserCount     int                     `json:"user_count"`
+	DeviceCount   int                     `json:"device_count"`
 	Children    []*OrganizationTreeNode `json:"children,omitempty"`
 }

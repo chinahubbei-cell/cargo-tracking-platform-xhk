@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -66,6 +67,9 @@ func (s *SyncScheduler) Start() {
 
 	// 数据清理：每天凌晨3点（清理超过365天的数据）
 	go s.runDaily("03:00", s.cleanupOldData)
+
+	// 服务期限预警检查：每天凌晨2点
+	go s.runDaily("02:00", s.checkServiceExpirations)
 }
 
 // Stop 停止同步调度器
@@ -509,6 +513,111 @@ func (s *SyncScheduler) cleanupOldData() error {
 	return nil
 }
 
+// checkServiceExpirations 检查组织和设备的到期情况
+func (s *SyncScheduler) checkServiceExpirations() error {
+	log.Println("[SyncScheduler] 开始检查组织和设备服务到期情况...")
+
+	now := time.Now()
+	windows := []int{30, 7, 1}
+
+	// 1. 检查组织到期 (ORG_EXPIRE)
+	var orgs []models.Organization
+	if err := s.db.Find(&orgs).Error; err == nil {
+		for _, org := range orgs {
+			if org.ServiceEnd == nil || org.ServiceEnd.IsZero() {
+				continue
+			}
+
+			daysLeft := int(org.ServiceEnd.Sub(now).Hours() / 24)
+
+			for _, w := range windows {
+				if daysLeft == w {
+					s.createExpirationAlert(nil, "ORG_EXPIRE", "warning",
+						"组织服务即将到期",
+						fmt.Sprintf("您的组织 [%s] 服务还有 %d 天到期（%s）", org.Name, daysLeft, org.ServiceEnd.Format("2006-01-02")),
+						"system")
+					break
+				}
+			}
+
+			if daysLeft < 0 {
+				s.createExpirationAlert(nil, "ORG_EXPIRE", "critical",
+					"组织服务已过期",
+					fmt.Sprintf("您的组织 [%s] 服务已过期 %d 天，请联系管理员续费", org.Name, -daysLeft),
+					"system")
+			}
+		}
+	}
+
+	// 2. 检查设备到期 (DEVICE_EXPIRE)
+	var devices []models.Device
+	if err := s.db.Find(&devices).Error; err == nil {
+		for _, device := range devices {
+			if device.ServiceEndAt == nil || device.ServiceEndAt.IsZero() {
+				continue
+			}
+
+			daysLeft := int(device.ServiceEndAt.Sub(now).Hours() / 24)
+
+			for _, w := range windows {
+				if daysLeft == w {
+					s.createExpirationAlert(&device.ID, "DEVICE_EXPIRE", "warning",
+						"设备服务即将到期",
+						fmt.Sprintf("设备 [%s] 服务还有 %d 天到期（%s）", device.Name, daysLeft, device.ServiceEndAt.Format("2006-01-02")),
+						"physical")
+
+					s.notifyDeviceExpiration(device, daysLeft)
+					break
+				}
+			}
+
+			if daysLeft < 0 {
+				s.createExpirationAlert(&device.ID, "DEVICE_EXPIRE", "critical",
+					"设备服务已过期",
+					fmt.Sprintf("设备 [%s] 服务已过期 %d 天，系统将停止服务", device.Name, -daysLeft),
+					"physical")
+
+				s.notifyDeviceExpiration(device, daysLeft)
+			}
+		}
+	}
+
+	log.Println("[SyncScheduler] 组织和设备到期检查完成")
+	return nil
+}
+
+func (s *SyncScheduler) notifyDeviceExpiration(device models.Device, daysLeft int) {
+	if device.SubAccountID != nil && *device.SubAccountID != "" {
+		log.Printf("[SyncScheduler] [通知优先推送分机构 %s] 设备 %s 剩余 %d 天到期", *device.SubAccountID, device.ID, daysLeft)
+	} else if device.OrgID != nil && *device.OrgID != "" {
+		log.Printf("[SyncScheduler] [回退并通知主组织管理员 %s] 设备 %s 剩余 %d 天到期", *device.OrgID, device.ID, daysLeft)
+	}
+}
+
+func (s *SyncScheduler) createExpirationAlert(deviceID *string, alertType, severity, title, message, category string) {
+	var count int64
+	query := s.db.Model(&models.Alert{}).Where("type = ? AND title = ? AND created_at > ?", alertType, title, time.Now().Add(-24*time.Hour))
+	if deviceID != nil {
+		query = query.Where("device_id = ?", *deviceID)
+	}
+	query.Count(&count)
+	if count > 0 {
+		return
+	}
+
+	alert := models.Alert{
+		DeviceID:  deviceID,
+		Type:      alertType,
+		Severity:  severity,
+		Title:     title,
+		Message:   &message,
+		Status:    "pending",
+		Category:  category,
+		CreatedAt: time.Now(),
+	}
+	s.db.Create(&alert)
+}
+
 // GetSyncStats 获取同步统计信息
 func (s *SyncScheduler) GetSyncStats() map[string]interface{} {
 	var totalTracks int64
@@ -583,6 +692,8 @@ func (s *SyncScheduler) SyncDeviceTrack(deviceID string, startTime, endTime time
 		}
 
 		// 保存到本地（幂等去重：device_id + locate_time）
+		var hasNewTracks bool
+		var latestTrackTime time.Time
 		for _, t := range apiTracks {
 			track := models.DeviceTrack{
 				DeviceID:    device.ID,
@@ -590,6 +701,7 @@ func (s *SyncScheduler) SyncDeviceTrack(deviceID string, startTime, endTime time
 				Longitude:   t.Longitude,
 				Speed:       t.Speed,
 				Direction:   t.Direction,
+				RunStatus:   t.RunStatus,
 				Temperature: t.Temperature,
 				Humidity:    t.Humidity,
 				LocateType:  t.LocateType,
@@ -606,8 +718,15 @@ func (s *SyncScheduler) SyncDeviceTrack(deviceID string, startTime, endTime time
 					log.Printf("[SyncScheduler] 保存轨迹失败: %v", result.Error)
 				}
 			} else if result.RowsAffected > 0 {
-				s.refreshBoundShipmentStopsForDevice(&device, track.LocateTime)
+				hasNewTracks = true
+				if track.LocateTime.After(latestTrackTime) {
+					latestTrackTime = track.LocateTime
+				}
 			}
+		}
+
+		if hasNewTracks {
+			s.refreshBoundShipmentStopsForDevice(&device, latestTrackTime)
 		}
 	}
 

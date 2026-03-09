@@ -18,6 +18,8 @@ import Customers from './pages/Customers';
 import Rates from './pages/Rates';
 import Settings from './pages/Settings';
 import MagicLinkPage from './pages/MagicLinkPage'; // Phase 8: B端轻量化页面
+import DevicePurchase from './pages/DevicePurchase'; // Phase 10: 设备购买
+import DeviceRenewal from './pages/DeviceRenewal'; // Phase 10: 设备续费
 import { useAuthStore } from './store/authStore';
 
 import 'antd/dist/reset.css';
@@ -39,56 +41,56 @@ function App() {
       locale={zhCN}
       theme={{
         token: {
-          fontSize: 15,        // 基础字号 14→15
-          fontSizeSM: 13,      // 小号字体 12→13  
-          fontSizeLG: 17,      // 大号字体 16→17
-          fontSizeXL: 21,      // 超大字体 20→21
-          fontSizeHeading1: 38,
-          fontSizeHeading2: 30,
-          fontSizeHeading3: 24,
-          fontSizeHeading4: 20,
-          fontSizeHeading5: 17,
+          fontSize: 17,        // 基础字号 15→17
+          fontSizeSM: 15,      // 小号字体 13→15  
+          fontSizeLG: 20,      // 大号字体 17→20
+          fontSizeXL: 24,      // 超大字体 21→24
+          fontSizeHeading1: 44,
+          fontSizeHeading2: 35,
+          fontSizeHeading3: 28,
+          fontSizeHeading4: 23,
+          fontSizeHeading5: 20,
           lineHeight: 1.6,     // 行高 1.5→1.6
           borderRadius: 6,
         },
         components: {
           Table: {
-            fontSize: 14,
-            cellFontSize: 14,
+            fontSize: 16,
+            cellFontSize: 16,
           },
           Menu: {
-            fontSize: 15,
-            itemHeight: 44,
+            fontSize: 17,
+            itemHeight: 50,
           },
           Button: {
-            fontSize: 15,
-            controlHeight: 36,
+            fontSize: 17,
+            controlHeight: 40,
           },
           Input: {
-            fontSize: 15,
+            fontSize: 17,
           },
           Select: {
-            fontSize: 15,
+            fontSize: 17,
           },
           Modal: {
-            fontSize: 15,
-            titleFontSize: 18,
+            fontSize: 17,
+            titleFontSize: 21,
           },
           Card: {
-            fontSize: 15,
+            fontSize: 17,
           },
           Descriptions: {
-            fontSize: 14,
+            fontSize: 16,
           },
           Form: {
-            fontSize: 15,
-            labelFontSize: 15,
+            fontSize: 17,
+            labelFontSize: 17,
           },
           Tabs: {
-            fontSize: 15,
+            fontSize: 17,
           },
           Tag: {
-            fontSize: 13,
+            fontSize: 15,
           },
         }
       }}
@@ -132,6 +134,10 @@ function App() {
 
               {/* 商务管理 */}
               <Route path="business-mgmt/rates" element={<Rates />} />
+
+              {/* 交易管理 */}
+              <Route path="trade/purchase" element={<DevicePurchase />} />
+              <Route path="trade/renewal" element={<DeviceRenewal />} />
 
               {/* 系统设置 */}
               <Route path="settings/system" element={<Settings />} />

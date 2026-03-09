@@ -318,7 +318,7 @@ const LoginHistoryTable: React.FC<{ records: LoginRecord[]; loading: boolean }> 
 
 // 主组件
 const SecurityConfig: React.FC = () => {
-    // const { user, logout } = useAuthStore();
+
     const [loadingHistory, setLoadingHistory] = useState(false);
     const [loadingSessions, setLoadingSessions] = useState(false);
     const [savingSettings, setSavingSettings] = useState(false);

@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"unicode"
@@ -152,30 +154,64 @@ func (h *GeocodeHandler) ReverseGeocode(c *gin.Context) {
 		return
 	}
 
-	// lang := c.DefaultQuery("lang", "zh-CN")
+	// 坐标有效性校验
+	if lat < -90 || lat > 90 || lng < -180 || lng > 180 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "经纬度超出有效范围"})
+		return
+	}
+
 	var address string
 
 	// 优先尝试腾讯地图（国内稳定）
+	// 注意：前端传入 WGS-84 坐标，腾讯地图 reverseGeocodeDetail 内部不做坐标转换
+	// 腾讯地图 API 默认接受 GCJ-02 但对于逆编码（只是查地名），WGS-84 偏差仅几百米，
+	// 对于粗略地址通常仍能返回正确结果
 	if services.TencentMap != nil {
 		addr, err := services.TencentMap.ReverseGeocode(lat, lng)
-		if err == nil && addr != "" {
+		if err != nil {
+			log.Printf("[ReverseGeocode] 腾讯地图失败: lat=%f, lng=%f, err=%v", lat, lng, err)
+		} else if addr != "" {
 			address = addr
 		}
 	}
 
-	// 腾讯地图失败或不可用时，回退到 Nominatim
+	// 腾讯地图失败或不可用时，回退到 Nominatim（接受 WGS-84）
 	if address == "" && services.Nominatim != nil {
 		addr, err := services.Nominatim.ReverseGeocode(lat, lng)
-		if err == nil && addr != "" {
+		if err != nil {
+			log.Printf("[ReverseGeocode] Nominatim失败: lat=%f, lng=%f, err=%v", lat, lng, err)
+		} else if addr != "" {
 			address = addr
+		}
+	}
+
+	// 两个服务都失败 - 回退到 geocoding.go 中的 GeocodingService
+	if address == "" {
+		geocodingSvc := services.NewGeocodingService()
+		result, err := geocodingSvc.ReverseGeocode(lat, lng)
+		if err != nil {
+			log.Printf("[ReverseGeocode] GeocodingService也失败: lat=%f, lng=%f, err=%v", lat, lng, err)
+		} else if result != nil && result.DisplayName != "" {
+			address = result.DisplayName
 		}
 	}
 
 	if address == "" {
+		log.Printf("[ReverseGeocode] 所有服务均失败: lat=%f, lng=%f", lat, lng)
+		// 返回格式化坐标作为 fallback 地址
+		latDir := "N"
+		if lat < 0 {
+			latDir = "S"
+		}
+		lngDir := "E"
+		if lng < 0 {
+			lngDir = "W"
+		}
+		fallbackAddress := fmt.Sprintf("%.4f°%s, %.4f°%s", lat, latDir, lng, lngDir)
 		c.JSON(http.StatusOK, gin.H{
 			"success":      true,
-			"data":         gin.H{"display_name": ""},
-			"display_name": "",
+			"data":         gin.H{"display_name": fallbackAddress},
+			"display_name": fallbackAddress,
 		})
 		return
 	}

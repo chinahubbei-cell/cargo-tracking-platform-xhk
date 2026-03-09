@@ -11,8 +11,8 @@ type User struct {
 	ID               string         `gorm:"primaryKey;type:varchar(50)" json:"id"`
 	Email            string         `gorm:"uniqueIndex;type:varchar(255);not null" json:"email"`
 	Password         string         `gorm:"type:varchar(255);not null" json:"-"`
-	PhoneCountryCode string         `gorm:"type:varchar(8);default:'+86';index:idx_user_phone,priority:1" json:"phone_country_code"`
-	PhoneNumber      *string        `gorm:"type:varchar(20);index:idx_user_phone,priority:2" json:"phone_number"`
+	PhoneCountryCode string         `gorm:"type:varchar(8);default:'+86';uniqueIndex:idx_user_phone,priority:1" json:"phone_country_code"`
+	PhoneNumber      *string        `gorm:"type:varchar(20);uniqueIndex:idx_user_phone,priority:2" json:"phone_number"`
 	PhoneVerifiedAt  *time.Time     `json:"phone_verified_at"`
 	LastOrgID        *string        `gorm:"type:varchar(50)" json:"last_org_id"`
 	Name             string         `gorm:"type:varchar(100);not null" json:"name"`

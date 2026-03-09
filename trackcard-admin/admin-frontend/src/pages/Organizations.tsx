@@ -82,9 +82,29 @@ const Organizations: React.FC = () => {
     };
 
     const columns = [
-        { title: '组织名称', dataIndex: 'name', key: 'name', width: 200 },
+        {
+            title: '组织名称',
+            dataIndex: 'name',
+            key: 'name',
+            width: 250,
+            render: (text: string, record: any) => (
+                <Space>
+                    {record.level === 1 || !record.level ? (
+                        <Tag color="blue">一级机构</Tag>
+                    ) : (
+                        <Tag color="cyan">二级{record.level > 2 ? '及以上' : ''}机构</Tag>
+                    )}
+                    {text}
+                </Space>
+            )
+        },
+        { title: '上级机构', dataIndex: 'parent_name', key: 'parent_name', width: 180, render: (t: string) => t || '-' },
+        { title: '简称', dataIndex: 'short_name', key: 'short_name', width: 100 },
         { title: '联系人', dataIndex: 'contact_name', key: 'contact_name', width: 100 },
         { title: '联系电话', dataIndex: 'contact_phone', key: 'contact_phone', width: 130 },
+        { title: '邮箱', dataIndex: 'contact_email', key: 'contact_email', width: 180, ellipsis: true },
+        { title: '地址', dataIndex: 'address', key: 'address', width: 220, ellipsis: true },
+        { title: '备注', dataIndex: 'remark', key: 'remark', width: 150, ellipsis: true },
         {
             title: '服务状态',
             dataIndex: 'service_status',
@@ -101,13 +121,22 @@ const Organizations: React.FC = () => {
             },
         },
         {
-            title: '到期时间',
+            title: '服务开始',
+            dataIndex: 'service_start',
+            key: 'service_start',
+            width: 120,
+            render: (t: string) => t ? dayjs(t).format('YYYY-MM-DD') : '-',
+        },
+        {
+            title: '服务到期',
             dataIndex: 'service_end',
             key: 'service_end',
             width: 120,
             render: (t: string) => t ? dayjs(t).format('YYYY-MM-DD') : '-',
         },
         { title: '最大设备数', dataIndex: 'max_devices', key: 'max_devices', width: 100 },
+        { title: '最大用户数', dataIndex: 'max_users', key: 'max_users', width: 100 },
+        { title: '月运单配额', dataIndex: 'max_shipments', key: 'max_shipments', width: 110 },
         {
             title: '操作',
             key: 'action',
@@ -141,7 +170,7 @@ const Organizations: React.FC = () => {
                 rowKey="id"
                 loading={loading}
                 pagination={{ pageSize: 10 }}
-                scroll={{ x: 1000 }}
+                scroll={{ x: 1800 }}
             />
 
             <Modal
@@ -159,27 +188,43 @@ const Organizations: React.FC = () => {
                             </Form.Item>
                         </Col>
                         <Col span={12}>
+                            <Form.Item name="parent_id" label="上级机构">
+                                <Select allowClear placeholder="无（作为一级机构）">
+                                    {data.filter(org => org.id !== editingOrg?.id && org.level === 1).map(org => (
+                                        <Select.Option key={org.id} value={org.id}>{org.name}</Select.Option>
+                                    ))}
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                    </Row>
+                    <Row gutter={16}>
+                        <Col span={12}>
                             <Form.Item name="short_name" label="简称">
+                                <Input />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="contact_name" label="联系人">
                                 <Input />
                             </Form.Item>
                         </Col>
                     </Row>
                     <Row gutter={16}>
                         <Col span={12}>
-                            <Form.Item name="contact_name" label="联系人">
-                                <Input />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
                             <Form.Item name="contact_phone" label="联系电话">
                                 <Input />
                             </Form.Item>
                         </Col>
+                        <Col span={12}>
+                            <Form.Item name="contact_email" label="邮箱">
+                                <Input />
+                            </Form.Item>
+                        </Col>
                     </Row>
-                    <Form.Item name="contact_email" label="邮箱">
-                        <Input />
-                    </Form.Item>
                     <Form.Item name="address" label="地址">
+                        <Input.TextArea rows={2} />
+                    </Form.Item>
+                    <Form.Item name="remark" label="备注">
                         <Input.TextArea rows={2} />
                     </Form.Item>
                     <Row gutter={16}>

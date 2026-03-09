@@ -1,0 +1,76 @@
+# OpenClaw / Codex context guardrail
+
+# Dependencies & build
+node_modules/
+vendor/
+dist/
+build/
+out/
+.next/
+.nuxt/
+coverage/
+.nyc_output/
+
+# Python / misc runtime
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Logs / temp
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.tmp/
+tmp/
+.cache/
+
+# IDE / OS noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Secrets / env
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.crt
+
+# Heavy binaries & archives
+*.zip
+*.tar
+*.gz
+*.7z
+*.mp4
+*.mp3
+*.wav
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.ico
+*.pdf
+
+# Databases & dumps (keep migrations in repo if needed)
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+
+# Cloud/native caches
+.gcloud/
+.kube/cache/
+skaffold/cache/
+.docker/
+
+# Optional bulky data dirs
+seed_data/
+mock_data/

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Form, Input, Button, message, Spin, Tag, Alert, Menu, Switch, Card, Result, Radio, Space, Descriptions, Avatar } from 'antd';
+import { Form, Input, Button, message, Spin, Tag, Alert, Menu, Switch, Card, Result, Radio, Space, Descriptions, Avatar, Modal } from 'antd';
 import type { MenuProps } from 'antd';
 import {
     SaveOutlined,
@@ -17,7 +17,9 @@ import {
     DollarOutlined,
     UserOutlined,
     MailOutlined,
-    SettingOutlined
+    SettingOutlined,
+    PhoneOutlined,
+    EditOutlined
 } from '@ant-design/icons';
 import { useLocation } from 'react-router-dom';
 import api from '../api/client';
@@ -41,7 +43,9 @@ const Settings: React.FC = () => {
     const [apiStatus, setApiStatus] = useState<'configured' | 'not_configured' | 'checking'>('checking');
     const [apiInfo, setApiInfo] = useState<{ cid?: string; baseUrl?: string }>({});
     const [passwordForm] = Form.useForm();
+    const [phoneForm] = Form.useForm();
     const [form] = Form.useForm();
+    const [phoneModalVisible, setPhoneModalVisible] = useState(false);
 
     // 判断当前是个人设置还是系统设置
     const isProfileSettings = location.pathname === '/settings/profile';
@@ -296,6 +300,59 @@ const Settings: React.FC = () => {
         }
     };
 
+    // 个人设置 - 更新手机号
+    const handlePhoneUpdate = async (values: any) => {
+        if (!user?.id) {
+            message.error('用户信息不存在');
+            return;
+        }
+
+        setSaving(true);
+        try {
+            console.log('开始更新手机号:', values);
+            console.log('用户ID:', user.id);
+
+            const updateData = {
+                phone_country_code: values.phone_country_code || '+86',
+                phone_number: values.phone_number,
+            };
+            console.log('发送的数据:', updateData);
+
+            const response = await api.updateUser(user.id, updateData);
+            console.log('API响应:', response);
+
+            // 如果API返回了用户数据，使用返回的数据；否则使用本地数据
+            const updatedUserData = response.data || {
+                ...user,
+                phone_country_code: values.phone_country_code || '+86',
+                phone_number: values.phone_number,
+            };
+
+            console.log('更新后的用户数据:', updatedUserData);
+
+            // 更新本地用户信息
+            useAuthStore.getState().setAuth(useAuthStore.getState().token || '', updatedUserData);
+
+            message.success('手机号更新成功');
+            setPhoneModalVisible(false);
+            phoneForm.resetFields();
+        } catch (error: any) {
+            console.error('手机号更新失败:', error);
+            console.error('错误详情:', error.response?.data);
+            message.error(error.response?.data?.error || '手机号更新失败');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const openPhoneModal = () => {
+        phoneForm.setFieldsValue({
+            phone_country_code: user?.phone_country_code || '+86',
+            phone_number: user?.phone_number || '',
+        });
+        setPhoneModalVisible(true);
+    };
+
     const renderProfileSettings = () => (
         <div>
             <h3 style={{ marginBottom: 24, fontSize: 18, fontWeight: 600 }}>个人信息</h3>
@@ -315,8 +372,16 @@ const Settings: React.FC = () => {
                             {user?.role === 'admin' ? '管理员' : user?.role === 'operator' ? '操作员' : '查看者'}
                         </div>
                         <div style={{ color: '#666', marginBottom: 4 }}>
-                            <UserOutlined style={{ marginRight: 8 }} />
+                            <PhoneOutlined style={{ marginRight: 8 }} />
                             {user?.phone_number ? `${user?.phone_country_code || '+86'} ${user?.phone_number}` : '手机号未设置'}
+                            <Button
+                                type="link"
+                                icon={<EditOutlined />}
+                                onClick={openPhoneModal}
+                                style={{ padding: 0, marginLeft: 8, fontSize: 12 }}
+                            >
+                                编辑
+                            </Button>
                         </div>
                         {user?.organizations && user.organizations.length > 0 && (
                             <div style={{ color: '#666' }}>
@@ -589,6 +654,58 @@ const Settings: React.FC = () => {
                     {renderContent()}
                 </div>
             </div>
+
+            {/* 手机号编辑弹窗 */}
+            <Modal
+                title={<span><PhoneOutlined style={{ marginRight: 8 }} />编辑手机号</span>}
+                open={phoneModalVisible}
+                onCancel={() => {
+                    setPhoneModalVisible(false);
+                    phoneForm.resetFields();
+                }}
+                footer={null}
+                width={450}
+            >
+                <Form
+                    form={phoneForm}
+                    layout="vertical"
+                    onFinish={handlePhoneUpdate}
+                    style={{ marginTop: 24 }}
+                >
+                    <Form.Item
+                        name="phone_country_code"
+                        label="国家/地区码"
+                        rules={[{ required: true, message: '请输入国家/地区码' }]}
+                    >
+                        <Input placeholder="+86" />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="phone_number"
+                        label="手机号"
+                        rules={[
+                            { required: true, message: '请输入手机号' },
+                            { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号格式' }
+                        ]}
+                    >
+                        <Input placeholder="请输入手机号" />
+                    </Form.Item>
+
+                    <Form.Item>
+                        <Space>
+                            <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={saving}>
+                                保存
+                            </Button>
+                            <Button onClick={() => {
+                                setPhoneModalVisible(false);
+                                phoneForm.resetFields();
+                            }}>
+                                取消
+                            </Button>
+                        </Space>
+                    </Form.Item>
+                </Form>
+            </Modal>
         </Card>
     );
 };

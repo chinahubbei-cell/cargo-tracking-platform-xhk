@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: '/api',
+    baseURL: '/api/admin',
     timeout: 10000,
 });
 
@@ -46,16 +46,27 @@ export const orgApi = {
     getExpiring: () => api.get('/orgs/expiring'),
 };
 
-// 订单
+// 订单（V2 全链路）
 export const orderApi = {
     list: (params?: any) => api.get('/orders', { params }),
     create: (data: any) => api.post('/orders', data),
     get: (id: string) => api.get(`/orders/${id}`),
-    update: (id: string, data: any) => api.put(`/orders/${id}`, data),
-    confirm: (id: string) => api.put(`/orders/${id}/confirm`),
-    ship: (id: string, data: any) => api.put(`/orders/${id}/ship`, data),
-    complete: (id: string) => api.put(`/orders/${id}/complete`),
-    cancel: (id: string) => api.put(`/orders/${id}/cancel`),
+    submitReview: (id: string) => api.post(`/orders/${id}/submit-review`),
+    review: (id: string, data: { action: 'approve' | 'reject'; comment: string }) =>
+        api.post(`/orders/${id}/review`, data),
+    generateContract: (id: string) => api.post(`/orders/${id}/contract/generate`),
+    confirmOfflineSign: (id: string, data?: { file_url?: string }) =>
+        api.post(`/orders/${id}/contract/confirm-offline`, data),
+    confirmPayment: (id: string, data?: { amount?: number; note?: string }) =>
+        api.post(`/orders/${id}/payment/confirm`, data),
+    void: (id: string, data?: { reason?: string }) =>
+        api.post(`/orders/${id}/void`, data),
+    invoiceReview: (id: string, data: { action: 'approve' | 'reject'; comment?: string }) =>
+        api.post(`/orders/${id}/invoice/review`, data),
+    issueInvoice: (id: string, data: { invoice_no: string; file_url?: string }) =>
+        api.post(`/orders/${id}/invoice/issue`, data),
+    startFulfilling: (id: string) => api.post(`/orders/${id}/fulfilling`),
+    complete: (id: string) => api.post(`/orders/${id}/complete`),
 };
 
 // 设备

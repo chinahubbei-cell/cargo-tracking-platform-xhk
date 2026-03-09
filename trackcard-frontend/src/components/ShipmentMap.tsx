@@ -230,7 +230,7 @@ const ShipmentMap: React.FC<ShipmentMapProps> = ({
     const [addressCache, setAddressCache] = useState<Record<string, { zh: string; en: string }>>({});
     // 当前选中运单的当前位置地址
     const [currentAddress, setCurrentAddress] = useState<string>('');
-    // const [currentAddressEn, setCurrentAddressEn] = useState<string>(''); // Unused
+
 
     // 当轨迹数据更新时，获取当前地理地址（逆编码）- 通过后端API代理
     useEffect(() => {
@@ -241,10 +241,8 @@ const ShipmentMap: React.FC<ShipmentMapProps> = ({
             }
 
             const { lat, lng } = trackData.currentPosition;
-            // 转换为 WGS-84
-            const [wgsLng, wgsLat] = gcj02ToWgs84(lng, lat);
-            // 使用精度截断来增加缓存命中率
-            const cacheKey = `${wgsLat.toFixed(5)},${wgsLng.toFixed(5)}`;
+            // 设备坐标已经是 WGS-84，直接使用，无需转换
+            const cacheKey = `${lat.toFixed(5)},${lng.toFixed(5)}`;
 
             if (addressCache[cacheKey]) {
                 setCurrentAddress(addressCache[cacheKey].zh);
@@ -252,8 +250,8 @@ const ShipmentMap: React.FC<ShipmentMapProps> = ({
             }
 
             try {
-                const res = await api.reverseGeocode(wgsLat, wgsLng);
-                const addressZh = (res.success && res.display_name) ? res.display_name : '无法识别当前位置地址';
+                const res = await api.reverseGeocode(lat, lng);
+                const addressZh = (res.success && res.display_name) ? res.display_name : `${lat.toFixed(4)}°${lat >= 0 ? 'N' : 'S'}, ${lng.toFixed(4)}°${lng >= 0 ? 'E' : 'W'}`;
                 setCurrentAddress(addressZh);
                 setAddressCache(prev => ({ ...prev, [cacheKey]: { zh: addressZh, en: addressZh } }));
             } catch (err) {

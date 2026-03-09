@@ -165,6 +165,25 @@ const menuItems: MenuProps['items'] = [
         ],
     },
 
+    // 7. 交易管理
+    {
+        key: '/trade',
+        icon: <ShoppingOutlined />,
+        label: '交易管理',
+        children: [
+            {
+                key: '/trade/purchase',
+                icon: <ShoppingOutlined />,
+                label: '设备购买',
+            },
+            {
+                key: '/trade/renewal',
+                icon: <ClockCircleOutlined />,
+                label: '设备续费',
+            },
+        ],
+    },
+
     // 7. 系统设置
     {
         key: '/settings',

@@ -148,11 +148,12 @@ const AddressDisplay: React.FC<{ lat: number; lng: number }> = ({ lat, lng }) =>
                 if (res.success && res.display_name) {
                     setAddress(res.display_name);
                 } else {
-                    setAddress('未知位置');
+                    // 逆编码失败，显示格式化坐标
+                    setAddress(`${lat.toFixed(4)}°${lat >= 0 ? 'N' : 'S'}, ${lng.toFixed(4)}°${lng >= 0 ? 'E' : 'W'}`);
                 }
             } catch (error) {
                 console.error('Reverse geocoding error:', error);
-                setAddress('地址查询失败');
+                setAddress(`${lat.toFixed(4)}°${lat >= 0 ? 'N' : 'S'}, ${lng.toFixed(4)}°${lng >= 0 ? 'E' : 'W'}`);
             }
         };
 

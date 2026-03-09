@@ -187,11 +187,20 @@ func (s *GeocodingService) ReverseGeocodeWithLanguage(lat, lng float64, acceptLa
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %v", err)
 	}
-	req.Header.Set("User-Agent", "TrackCard-Cargo-Platform/1.0")
+	req.Header.Set("User-Agent", "Cargo-Tracking-Platform/1.1 (admin@cargotrack.test)")
 
-	resp, err := s.httpClient.Do(req)
+	var resp *http.Response
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			time.Sleep(time.Duration(attempt) * time.Second) // 指数退避
+		}
+		resp, err = s.httpClient.Do(req)
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
-		return nil, fmt.Errorf("请求失败: %v", err)
+		return nil, fmt.Errorf("请求失败(重试后): %v", err)
 	}
 	defer resp.Body.Close()
 
@@ -201,8 +210,12 @@ func (s *GeocodingService) ReverseGeocodeWithLanguage(lat, lng float64, acceptLa
 	}
 
 	var result nominatimResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("解析响应失败: %v", err)
+	if parseErr := json.Unmarshal(body, &result); parseErr != nil {
+		return nil, fmt.Errorf("解析响应失败: %v - body: %s", parseErr, string(body))
+	}
+
+	if result.DisplayName == "" {
+		return nil, fmt.Errorf("无法通过服务返回有效的逆解析结果: body: %s", string(body))
 	}
 
 	// 获取城市名

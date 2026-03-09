@@ -668,51 +668,51 @@ const GlobalAirports: React.FC = () => {
                                                     const isFocused = focusedAirport?.iata_code === key;
 
                                                     return (
-                                                    <Marker
-                                                        key={key}
-                                                        position={[airport.latitude, airport.longitude]}
-                                                        icon={createAirportIcon(airport.tier, airport.is_cargo_hub)}
-                                                        ref={(ref) => {
-                                                            if (ref) {
-                                                                markerRefs.current[key] = ref;
-                                                            }
-                                                        }}
-                                                    >
-                                                        {isFocused && (
-                                                            <span style={{
-                                                                position: 'absolute',
-                                                                top: -30,
-                                                                left: '50%',
-                                                                transform: 'translateX(-50%)',
-                                                                background: '#ff4d4f',
-                                                                color: 'white',
-                                                                padding: '2px 8px',
-                                                                borderRadius: '4px',
-                                                                fontSize: '12px',
-                                                                fontWeight: 'bold',
-                                                                whiteSpace: 'nowrap',
-                                                                zIndex: 1000
-                                                            }}>
-                                                                🔍 当前选中
-                                                            </span>
-                                                        )}
-                                                        <Popup>
-                                                            <div style={{ minWidth: 180 }}>
-                                                                <strong style={{ fontSize: 14 }}>{airport.name}</strong>
-                                                                <span style={{ color: '#666', marginLeft: 4 }}>({airport.iata_code})</span>
-                                                                <br />
-                                                                <span style={{ color: '#888', fontSize: 12 }}>{airport.name_en}</span>
-                                                                <br />
-                                                                <span>{airport.city}, {airport.country} | {regionNameMap[airport.region] || airport.region}</span>
-                                                                <br />
-                                                                <span style={{ color: airport.tier === 1 ? '#faad14' : '#52c41a' }}>
-                                                                    {airport.tier === 1 ? '✈️ 枢纽机场' : airport.tier === 2 ? '区域机场' : '支线机场'}
+                                                        <Marker
+                                                            key={key}
+                                                            position={[airport.latitude, airport.longitude]}
+                                                            icon={createAirportIcon(airport.tier, airport.is_cargo_hub)}
+                                                            ref={(ref) => {
+                                                                if (ref) {
+                                                                    markerRefs.current[key] = ref;
+                                                                }
+                                                            }}
+                                                        >
+                                                            {isFocused && (
+                                                                <span style={{
+                                                                    position: 'absolute',
+                                                                    top: -30,
+                                                                    left: '50%',
+                                                                    transform: 'translateX(-50%)',
+                                                                    background: '#ff4d4f',
+                                                                    color: 'white',
+                                                                    padding: '2px 8px',
+                                                                    borderRadius: '4px',
+                                                                    fontSize: '12px',
+                                                                    fontWeight: 'bold',
+                                                                    whiteSpace: 'nowrap',
+                                                                    zIndex: 1000
+                                                                }}>
+                                                                    🔍 当前选中
                                                                 </span>
-                                                                {airport.is_cargo_hub && <Tag color="purple" style={{ marginLeft: 4 }}>货运枢纽</Tag>}
-                                                                {airport.annual_cargo_tons > 0 && <><br />年货运量: {airport.annual_cargo_tons}万吨</>}
-                                                            </div>
-                                                        </Popup>
-                                                    </Marker>
+                                                            )}
+                                                            <Popup>
+                                                                <div style={{ minWidth: 180 }}>
+                                                                    <strong style={{ fontSize: 14 }}>{airport.name}</strong>
+                                                                    <span style={{ color: '#666', marginLeft: 4 }}>({airport.iata_code})</span>
+                                                                    <br />
+                                                                    <span style={{ color: '#888', fontSize: 12 }}>{airport.name_en}</span>
+                                                                    <br />
+                                                                    <span>{airport.city}, {airport.country} | {regionNameMap[airport.region] || airport.region}</span>
+                                                                    <br />
+                                                                    <span style={{ color: airport.tier === 1 ? '#faad14' : '#52c41a' }}>
+                                                                        {airport.tier === 1 ? '✈️ 枢纽机场' : airport.tier === 2 ? '区域机场' : '支线机场'}
+                                                                    </span>
+                                                                    {airport.is_cargo_hub && <Tag color="purple" style={{ marginLeft: 4 }}>货运枢纽</Tag>}
+                                                                    {airport.annual_cargo_tons > 0 && <><br />年货运量: {airport.annual_cargo_tons}万吨</>}
+                                                                </div>
+                                                            </Popup>
+                                                        </Marker>
                                                     );
                                                 })}
 
@@ -788,7 +788,7 @@ const GlobalAirports: React.FC = () => {
                                         rowKey="iata_code"
                                         size="small"
                                         loading={loading}
-                                        scroll={{ x: 1200, y: 400 }}
+                                        scroll={{ x: 1200, y: 'calc(100vh - 620px)' }}
                                         pagination={{
                                             current: currentPage,
                                             pageSize: pageSize,

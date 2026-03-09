@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +12,39 @@ import (
 	"trackcard-server/services"
 	"trackcard-server/utils"
 )
+
+// updateDeviceFromExternal 从外部API数据更新设备属性（提取公共方法消除重复）
+func updateDeviceFromExternal(db *gorm.DB, device *models.Device, ext *services.DeviceInfo) {
+	status := "offline"
+	if ext.Status == 1 {
+		status = "online"
+	}
+
+	device.Status = status
+	device.Battery = ext.PowerRate
+	device.Latitude = &ext.Latitude
+	device.Longitude = &ext.Longitude
+	device.Speed = ext.Speed
+	device.Direction = ext.Direction
+	device.LocateType = &ext.LocateType
+	device.Temperature = ext.Temperature
+	device.Humidity = ext.Humidity
+	locateTime := time.Unix(ext.LocateTime, 0)
+	device.LastUpdate = locateTime
+
+	db.Model(device).Updates(map[string]interface{}{
+		"status":      device.Status,
+		"battery":     device.Battery,
+		"latitude":    device.Latitude,
+		"longitude":   device.Longitude,
+		"speed":       device.Speed,
+		"direction":   device.Direction,
+		"locate_type": device.LocateType,
+		"temperature": device.Temperature,
+		"humidity":    device.Humidity,
+		"last_update": device.LastUpdate,
+	})
+}
 
 type DeviceHandler struct {
 	db *gorm.DB
@@ -179,38 +213,7 @@ func (h *DeviceHandler) syncExternalDeviceData(devices []models.Device) []models
 		if !ok {
 			continue
 		}
-
-		status := "offline"
-		if ext.Status == 1 {
-			status = "online"
-		}
-
-		device.Status = status
-		device.Battery = ext.PowerRate
-		device.Latitude = &ext.Latitude
-		device.Longitude = &ext.Longitude
-		device.Speed = ext.Speed
-		device.Direction = ext.Direction
-		device.LocateType = &ext.LocateType
-		device.Temperature = ext.Temperature
-		device.Humidity = ext.Humidity
-
-		locateTime := time.Unix(ext.LocateTime, 0)
-		device.LastUpdate = locateTime
-
-		// 持久化到数据库
-		h.db.Model(device).Updates(map[string]interface{}{
-			"status":      device.Status,
-			"battery":     device.Battery,
-			"latitude":    device.Latitude,
-			"longitude":   device.Longitude,
-			"speed":       device.Speed,
-			"direction":   device.Direction,
-			"locate_type": device.LocateType,
-			"temperature": device.Temperature,
-			"humidity":    device.Humidity,
-			"last_update": device.LastUpdate,
-		})
+		updateDeviceFromExternal(h.db, device, &ext)
 	}
 
 	log.Printf("[DeviceSync] Synced %d device(s) from external API", len(extDataList))
@@ -230,36 +233,7 @@ func (h *DeviceHandler) Get(c *gin.Context) {
 	if device.ExternalDeviceID != nil && *device.ExternalDeviceID != "" {
 		extData, err := services.Kuaihuoyun.GetDeviceInfo(*device.ExternalDeviceID)
 		if err == nil && extData != nil {
-			status := "offline"
-			if extData.Status == 1 {
-				status = "online"
-			}
-
-			device.Status = status
-			device.Battery = extData.PowerRate
-			device.Latitude = &extData.Latitude
-			device.Longitude = &extData.Longitude
-			device.Speed = extData.Speed
-			device.Direction = extData.Direction
-			device.LocateType = &extData.LocateType
-			device.Temperature = extData.Temperature
-			device.Humidity = extData.Humidity
-
-			locateTime := time.Unix(extData.LocateTime, 0)
-			device.LastUpdate = locateTime
-
-			h.db.Model(&device).Updates(map[string]interface{}{
-				"status":      device.Status,
-				"battery":     device.Battery,
-				"latitude":    device.Latitude,
-				"longitude":   device.Longitude,
-				"speed":       device.Speed,
-				"direction":   device.Direction,
-				"locate_type": device.LocateType,
-				"temperature": device.Temperature,
-				"humidity":    device.Humidity,
-				"last_update": device.LastUpdate,
-			})
+			updateDeviceFromExternal(h.db, &device, extData)
 		}
 	}
 
@@ -347,24 +321,7 @@ func (h *DeviceHandler) Create(c *gin.Context) {
 	if device.ExternalDeviceID != nil && *device.ExternalDeviceID != "" {
 		extData, err := services.Kuaihuoyun.GetDeviceInfo(*device.ExternalDeviceID)
 		if err == nil && extData != nil {
-			status := "offline"
-			if extData.Status == 1 {
-				status = "online"
-			}
-
-			h.db.Model(&device).Updates(map[string]interface{}{
-				"status":      status,
-				"battery":     extData.PowerRate,
-				"latitude":    extData.Latitude,
-				"longitude":   extData.Longitude,
-				"speed":       extData.Speed,
-				"direction":   extData.Direction,
-				"locate_type": extData.LocateType,
-				"temperature": extData.Temperature,
-				"humidity":    extData.Humidity,
-				"last_update": time.Unix(extData.LocateTime, 0),
-			})
-
+			updateDeviceFromExternal(h.db, &device, extData)
 			h.db.First(&device, "id = ?", device.ID)
 		}
 	}
@@ -426,12 +383,52 @@ func (h *DeviceHandler) Update(c *gin.Context) {
 func (h *DeviceHandler) Delete(c *gin.Context) {
 	id := c.Param("id")
 
+	// G-2: 删除前检查是否有活跃运单绑定
+	var activeCount int64
+	h.db.Model(&models.Shipment{}).Where(
+		"(device_id = ? OR device_id IN (SELECT external_device_id FROM devices WHERE id = ? AND external_device_id IS NOT NULL)) AND status NOT IN (?) AND deleted_at IS NULL",
+		id, id, []string{"delivered", "cancelled"},
+	).Count(&activeCount)
+	if activeCount > 0 {
+		utils.BadRequest(c, "该设备正在被运单使用中，无法删除")
+		return
+	}
+
 	if err := h.db.Delete(&models.Device{}, "id = ?", id).Error; err != nil {
-		utils.InternalError(c, err.Error())
+		utils.InternalError(c, "删除失败，请重试")
 		return
 	}
 
 	utils.SuccessResponse(c, gin.H{"success": true})
+}
+
+type AssignSubAccountRequest struct {
+	SubAccountID *string `json:"sub_account_id"`
+}
+
+func (h *DeviceHandler) AssignSubAccount(c *gin.Context) {
+	id := c.Param("id")
+
+	var device models.Device
+	if err := h.db.First(&device, "id = ?", id).Error; err != nil {
+		utils.NotFound(c, "设备不存在")
+		return
+	}
+
+	var req AssignSubAccountRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "无效的请求数据")
+		return
+	}
+
+	// 限制只有主组织管理员或者更高级别角色可以分配
+	// 还可以增加更多的业务校验，这里先简单更新字段
+	if err := h.db.Model(&device).Update("sub_account_id", req.SubAccountID).Error; err != nil {
+		utils.InternalError(c, err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, gin.H{"success": true, "sub_account_id": req.SubAccountID})
 }
 
 func (h *DeviceHandler) GetTrack(c *gin.Context) {
@@ -460,34 +457,47 @@ func (h *DeviceHandler) GetTrack(c *gin.Context) {
 		Order("locate_time ASC").
 		Find(&localTrack)
 
-	// 如果有外部设备ID，从外部API获取并持久化
+	// 如果有外部设备ID，从外部API获取并持久化（M-2: 批量操作消除 N+1）
 	if device.ExternalDeviceID != nil && *device.ExternalDeviceID != "" {
 		extTrack, err := services.Kuaihuoyun.GetTrack(*device.ExternalDeviceID, startTime, endTime)
 		if err == nil && len(extTrack) > 0 {
+			// 批量查询已有时间戳
+			locateTimes := make([]time.Time, len(extTrack))
+			for i, point := range extTrack {
+				locateTimes[i] = time.Unix(point.LocateTime, 0)
+			}
+			var existingTracks []models.DeviceTrack
+			h.db.Where("device_id = ? AND locate_time IN (?)", device.ID, locateTimes).
+				Find(&existingTracks)
+			existingSet := make(map[int64]bool)
+			for _, t := range existingTracks {
+				existingSet[t.LocateTime.Unix()] = true
+			}
+
+			// 批量构建新记录
+			now := time.Now()
+			var newTracks []models.DeviceTrack
 			for _, point := range extTrack {
-				locateTime := time.Unix(point.LocateTime, 0)
-
-				// 检查是否已存在
-				var count int64
-				h.db.Model(&models.DeviceTrack{}).
-					Where("device_id = ? AND locate_time = ?", device.ID, locateTime).
-					Count(&count)
-
-				if count == 0 {
-					track := models.DeviceTrack{
-						DeviceID:    device.ID,
-						Latitude:    point.Latitude,
-						Longitude:   point.Longitude,
-						Speed:       point.Speed,
-						Direction:   point.Direction,
-						Temperature: point.Temperature,
-						Humidity:    point.Humidity,
-						LocateType:  point.LocateType,
-						LocateTime:  locateTime,
-						SyncedAt:    time.Now(),
-					}
-					h.db.Create(&track)
+				if existingSet[point.LocateTime] {
+					continue
 				}
+				newTracks = append(newTracks, models.DeviceTrack{
+					DeviceID:    device.ID,
+					Latitude:    point.Latitude,
+					Longitude:   point.Longitude,
+					Speed:       point.Speed,
+					Direction:   point.Direction,
+					Temperature: point.Temperature,
+					Humidity:    point.Humidity,
+					LocateType:  point.LocateType,
+					LocateTime:  time.Unix(point.LocateTime, 0),
+					SyncedAt:    now,
+				})
+			}
+
+			// 批量插入
+			if len(newTracks) > 0 {
+				h.db.CreateInBatches(&newTracks, 100)
 			}
 
 			// 重新查询
@@ -519,15 +529,21 @@ func (h *DeviceHandler) GetTrack(c *gin.Context) {
 
 func (h *DeviceHandler) GetHistory(c *gin.Context) {
 	id := c.Param("id")
-	limit := c.DefaultQuery("limit", "100")
+	limitStr := c.DefaultQuery("limit", "100")
+	limitVal, err := strconv.Atoi(limitStr)
+	if err != nil || limitVal <= 0 {
+		limitVal = 100
+	}
+	if limitVal > 500 {
+		limitVal = 500 // 安全上限
+	}
 
 	var history []models.LocationHistory
 	h.db.Where("device_id = ?", id).
 		Order("timestamp DESC").
-		Limit(100).
+		Limit(limitVal).
 		Find(&history)
 
-	_ = limit
 	utils.SuccessResponse(c, history)
 }
 

@@ -1,11 +1,10 @@
-import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Table, Card, Tag, Button, Space, Select, message, Dropdown, Modal } from 'antd';
 import type { MenuProps } from 'antd';
-import { CheckOutlined, ReloadOutlined, SettingOutlined, EyeOutlined, DeleteOutlined, DownloadOutlined, CameraOutlined } from '@ant-design/icons';
+import { CheckOutlined, ReloadOutlined, SettingOutlined, EyeOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import * as XLSX from 'xlsx';
-import html2canvas from 'html2canvas';
-import { downloadExcel, downloadPng } from '../utils/downloadUtils';
+import { downloadExcel } from '../utils/downloadUtils';
 import api from '../api/client';
 import type { Alert } from '../types';
 import { useAuthStore } from '../store/authStore';
@@ -133,7 +132,7 @@ const Alerts: React.FC = () => {
     const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(50);
-    const tableRef = useRef<HTMLDivElement>(null);
+
 
     const { user } = useAuthStore();
     const navigate = useNavigate();
@@ -217,37 +216,7 @@ const Alerts: React.FC = () => {
         message.success(`成功导出 ${filteredAlerts.length} 条预警数据`);
     }, [filteredAlerts]);
 
-    // 截屏功能
-    const handleScreenshot = useCallback(async () => {
-        if (!tableRef.current) {
-            message.error('无法获取表格内容');
-            return;
-        }
 
-        try {
-            message.loading({ content: '正在生成截图...', key: 'screenshot' });
-
-
-
-            const canvas = await html2canvas(tableRef.current, {
-                backgroundColor: '#ffffff',
-                scale: 2,
-                useCORS: true,
-                logging: false,
-            });
-
-            canvas.toBlob((blob) => {
-                if (blob) {
-                    const fileName = `alerts_screenshot_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`;
-                    downloadPng(blob, fileName);
-                    message.success({ content: '截图已保存', key: 'screenshot' });
-                }
-            }, 'image/png');
-        } catch (error) {
-            console.error('截图失败:', error);
-            message.error({ content: '截图失败', key: 'screenshot' });
-        }
-    }, []);
 
     const handleResolve = useCallback(async (id: string) => {
         try {
@@ -375,14 +344,17 @@ const Alerts: React.FC = () => {
             title: '预警标题',
             dataIndex: 'title',
             key: 'title',
-            ellipsis: true, // 添加文本溢出处理
+            width: 200,
+            ellipsis: true,
         },
         {
             title: '类型',
             dataIndex: 'type',
             key: 'type',
-            width: 120,
-            render: (type: string) => TYPE_LABELS[type] || type,
+            width: 150,
+            render: (type: string) => (
+                <span style={{ whiteSpace: 'nowrap' }}>{TYPE_LABELS[type] || type}</span>
+            ),
         },
         {
             title: '严重程度',
@@ -484,7 +456,7 @@ const Alerts: React.FC = () => {
                     </Space>
                 }
             >
-                <div ref={tableRef}>
+                <div>
                     <Table
                         columns={columns}
                         dataSource={filteredAlerts}
@@ -508,14 +480,7 @@ const Alerts: React.FC = () => {
                                     >
                                         导出Excel
                                     </Button>
-                                    <Button
-                                        type="default"
-                                        size="small"
-                                        icon={<CameraOutlined />}
-                                        onClick={handleScreenshot}
-                                    >
-                                        截屏
-                                    </Button>
+
                                     <span>第 {range[0]}-{range[1]} 条，共 {total} 条</span>
                                 </div>
                             ),

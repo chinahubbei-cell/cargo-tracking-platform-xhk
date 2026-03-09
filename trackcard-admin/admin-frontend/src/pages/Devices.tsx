@@ -39,7 +39,7 @@ const Devices: React.FC = () => {
     };
 
     const fetchOrgs = async () => {
-        const res = await orgApi.list();
+        const res = await orgApi.list({ page_size: 1000 });
         if (res.data.success) {
             setOrgs(res.data.data || []);
         }
@@ -112,37 +112,12 @@ const Devices: React.FC = () => {
     };
 
     const columns = [
-        { title: '外部ID (IMEI)', dataIndex: 'external_device_id', key: 'external_device_id', width: 160 },
-        { title: '设备ID', dataIndex: 'id', key: 'id', width: 120 },
-        { title: '设备名称', dataIndex: 'name', key: 'name', width: 120 },
-        {
-            title: '类型',
-            dataIndex: 'type',
-            key: 'type',
-            width: 80,
-            render: (t: string) => ({
-                tracker: '追踪器', sensor: '传感器', gateway: '网关', container: '集装箱',
-            }[t] || t),
-        },
-        {
-            title: '状态',
-            dataIndex: 'status',
-            key: 'status',
-            width: 90,
-            render: (s: string) => <Tag color={statusColors[s]}>{statusLabels[s] || s}</Tag>,
-        },
-        { title: '所属组织', dataIndex: 'org_name', key: 'org_name', width: 150 },
-        {
-            title: '最后更新',
-            dataIndex: 'last_update',
-            key: 'last_update',
-            width: 150,
-            render: (t: string) => t ? dayjs(t).format('YYYY-MM-DD HH:mm') : '-',
-        },
+        { title: '序号', key: 'index', width: 60, render: (_t: any, _r: any, index: number) => index + 1 },
         {
             title: '操作',
             key: 'action',
             width: 150,
+            fixed: 'left' as const,
             render: (_: any, record: any) => (
                 <Space size="small">
                     {record.status === 'in_stock' && (
@@ -158,6 +133,98 @@ const Devices: React.FC = () => {
                 </Space>
             ),
         },
+        { title: '设备型号', dataIndex: 'device_model', key: 'device_model', width: 120 },
+        { title: '设备号', dataIndex: 'imei', key: 'imei', width: 140, render: (t: string, r: any) => t || r.sn || r.id },
+        {
+            title: '设备状态',
+            dataIndex: 'service_status',
+            key: 'service_status',
+            width: 90,
+            render: (s: string) => {
+                const map: Record<string, string> = { 'active': '在线', 'inactive': '离线', 'suspended': '停用' };
+                const colorMap: Record<string, string> = { 'active': 'success', 'inactive': 'default', 'suspended': 'error' };
+                return s ? <Tag color={colorMap[s] || 'default'}>{map[s] || s}</Tag> : '-';
+            }
+        },
+        { title: '电量', dataIndex: 'battery', key: 'battery', width: 80, render: (b: number) => b !== undefined && b !== null ? `${b}%` : '-' },
+        {
+            title: '定位模式',
+            dataIndex: 'locate_type',
+            key: 'locate_type',
+            width: 90,
+            render: (t: number) => {
+                const map: Record<number, string> = { 0: 'LBS', 1: 'GPS', 2: 'WIFI', 3: '北斗' };
+                return t !== undefined && t !== null ? map[t] || t : '-';
+            }
+        },
+        { title: '定位周期', key: 'locate_period', width: 90, render: () => '-' },
+        {
+            title: '最后一次定位时间',
+            dataIndex: 'last_update',
+            key: 'last_update',
+            width: 150,
+            render: (t: string) => t ? dayjs(t).format('YYYY-MM-DD HH:mm') : '-',
+        },
+        {
+            title: '库存状态',
+            dataIndex: 'status',
+            key: 'status',
+            width: 90,
+            render: (s: string) => <Tag color={statusColors[s]}>{statusLabels[s] || s}</Tag>,
+        },
+        { title: '账号', key: 'account', width: 100, render: () => '-' },
+        {
+            title: '归属公司',
+            dataIndex: 'org_name',
+            key: 'org_name',
+            width: 150,
+            render: (text: string, record: any) => {
+                const org = orgs.find((o: any) => o.id === record.org_id);
+                const displayName = org?.name || text;
+                if (!displayName) return '-';
+
+                let levelTag: { color: string; label: string } | null = null;
+                if (org?.level === 1) {
+                    levelTag = { color: 'blue', label: '一级机构' };
+                } else if (org?.level === 2) {
+                    levelTag = { color: 'cyan', label: '二级机构' };
+                }
+
+                return (
+                    <Space direction="vertical" size={0}>
+                        <span>{displayName}</span>
+                        {levelTag ? <Tag color={levelTag.color}>{levelTag.label}</Tag> : null}
+                    </Space>
+                );
+            }
+        },
+        { title: 'ICCID', key: 'iccid', width: 150, render: () => '-' },
+        { title: 'SIM卡号', key: 'sim', width: 120, render: () => '-' },
+        { title: '物联卡状态', key: 'iot_card_status', width: 100, render: () => '-' },
+        { title: '发卡日期', key: 'issue_date', width: 120, render: () => '-' },
+        { title: '激活日期', key: 'activation_date', width: 120, render: () => '-' },
+        { title: '最晚激活日期', key: 'latest_activation_date', width: 120, render: () => '-' },
+        {
+            title: '服务期止',
+            dataIndex: 'service_end_at',
+            key: 'service_end_at',
+            width: 120,
+            render: (t: string) => t ? dayjs(t).format('YYYY-MM-DD') : '-',
+        },
+        { title: '套餐总量(MB)', key: 'total_data', width: 120, render: () => '-' },
+        { title: '已使用流量(MB)', key: 'used_data', width: 120, render: () => '-' },
+        { title: '剩余流量(MB)', key: 'remaining_data', width: 120, render: () => '-' },
+        {
+            title: '创建时间',
+            dataIndex: 'created_at',
+            key: 'created_at',
+            width: 150,
+            render: (t: string) => t ? dayjs(t).format('YYYY-MM-DD HH:mm') : '-',
+        },
+        { title: '出库时间', key: 'outbound_time', width: 120, render: () => '-' },
+        { title: '到期时间', key: 'expiry_time', width: 120, render: () => '-' },
+        { title: 'MCU_VER版本', key: 'mcu_ver', width: 120, render: () => '-' },
+        { title: 'MTK_VER版本', key: 'mtk_ver', width: 120, render: () => '-' },
     ];
 
     return (
@@ -180,18 +247,18 @@ const Devices: React.FC = () => {
                 <Col span={4}><Card size="small"><Statistic title="已损坏" value={stats.damaged || 0} valueStyle={{ color: '#ff4d4f' }} /></Card></Col>
             </Row>
 
-            <Table dataSource={data} columns={columns} rowKey="id" loading={loading} scroll={{ x: 1200 }} />
+            <Table dataSource={data} columns={columns} rowKey="id" loading={loading} scroll={{ x: 'max-content' }} />
 
             {/* 入库 */}
             <Modal title="入库设备" open={modalVisible} onOk={handleSubmit} onCancel={() => setModalVisible(false)}>
                 <Form form={form} layout="vertical">
-                    <Form.Item name="external_device_id" label="外部ID (IMEI)" rules={[{ required: true }]}>
+                    <Form.Item name="imei" label="设备ID号" rules={[{ required: true }]}>
                         <Input />
                     </Form.Item>
-                    <Form.Item name="name" label="设备名称" rules={[{ required: true }]}>
+                    <Form.Item name="device_model" label="设备名称" rules={[{ required: true }]}>
                         <Input />
                     </Form.Item>
-                    <Form.Item name="type" label="设备类型" rules={[{ required: true }]}>
+                    <Form.Item name="device_type" label="设备类型" rules={[{ required: true }]}>
                         <Select>
                             <Select.Option value="tracker">追踪器</Select.Option>
                             <Select.Option value="sensor">传感器</Select.Option>
