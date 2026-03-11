@@ -784,7 +784,7 @@ const Shipments: React.FC = () => {
             title: '运单号',
             dataIndex: 'id',
             key: 'id',
-            width: 140,
+            width: 220,
             render: (id: string, record: Shipment) => (
                 <span
                     className={styles.shipmentId}
@@ -1083,7 +1083,7 @@ const Shipments: React.FC = () => {
             title: '定位设备号',
             dataIndex: 'device',
             key: 'device_id',
-            width: 160,
+            width: 200,
             render: (_: unknown, record: Shipment) => {
                 // 优先显示关联设备的external_device_id
                 const device = record.device;
@@ -1115,35 +1115,35 @@ const Shipments: React.FC = () => {
             title: '预计出发(ETD)',
             dataIndex: 'etd',
             key: 'etd',
-            width: 150,
+            width: 180,
             render: (value: string) => value ? new Date(value).toLocaleString('zh-CN') : '-',
         },
         {
             title: '实际出发(ATD)',
             dataIndex: 'atd',
             key: 'atd',
-            width: 150,
+            width: 180,
             render: (value: string) => value ? new Date(value).toLocaleString('zh-CN') : '-',
         },
         {
             title: '预计到达(ETA)',
             dataIndex: 'eta',
             key: 'eta',
-            width: 150,
+            width: 180,
             render: (eta: string) => eta ? new Date(eta).toLocaleString('zh-CN') : '-',
         },
         {
             title: '实际到达(ATA)',
             dataIndex: 'ata',
             key: 'ata_final',
-            width: 150,
+            width: 180,
             render: (value: string) => value ? new Date(value).toLocaleString('zh-CN') : '-',
         },
         {
             title: '创建时间',
             dataIndex: 'created_at',
             key: 'created_at',
-            width: 160,
+            width: 180,
             render: (time: string) => new Date(time).toLocaleString('zh-CN'),
         },
     ], [canEdit, devices, handleStatusTransition, handleViewDetail, handleViewTracking, handleEdit, handleDelete, formatAmount, currencyConfig, isFieldVisible]);
@@ -1244,7 +1244,7 @@ const Shipments: React.FC = () => {
                         </div>
                     )
                 }}
-                scroll={{ x: 3500, y: 'calc(100vh - 280px)' }}
+                scroll={{ x: 3800, y: 'calc(100vh - 280px)' }}
                 size="small"
                 locale={{
                     emptyText: filterOrgId && search ? (

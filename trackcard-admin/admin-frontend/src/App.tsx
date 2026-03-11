@@ -48,20 +48,43 @@ const App: React.FC = () => {
             locale={zhCN}
             theme={{
                 token: {
-                    fontSize: 17,
+                    fontSize: 17.5,
+                    fontSizeSM: 15,
+                    fontSizeLG: 20,
+                    lineHeight: 1.5,
+                },
+                components: {
+                    Table: {
+                        fontSize: 16,
+                        cellFontSize: 16,
+                        cellPaddingBlock: 10,
+                        cellPaddingInline: 15,
+                    },
+                    Menu: {
+                        fontSize: 17.5,
+                        itemHeight: 52,
+                    },
+                    Button: {
+                        fontSize: 17.5,
+                        controlHeight: 42,
+                    },
+                    Input: {
+                        fontSize: 17.5,
+                    },
+                    Select: {
+                        fontSize: 17.5,
+                    },
+                    Modal: {
+                        fontSize: 17.5,
+                        titleFontSize: 21,
+                    },
+                    Form: {
+                        fontSize: 17.5,
+                        labelFontSize: 17.5,
+                    },
                 },
             }}
         >
-            <style dangerouslySetInnerHTML={{
-                __html: `
-                body { font-size: 17px !important; }
-                .ant-btn { font-size: 17px !important; }
-                .ant-input { font-size: 17px !important; }
-                .ant-select { font-size: 17px !important; }
-                .ant-table { font-size: 17px !important; }
-                .ant-menu-item, .ant-menu-submenu-title { font-size: 20px !important; }
-                .ant-menu-item .anticon, .ant-menu-submenu-title .anticon { font-size: 20px !important; }
-            ` }} />
             <BrowserRouter>
                 <AuthProvider>
                     <AppRoutes />

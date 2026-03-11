@@ -41,53 +41,55 @@ function App() {
       locale={zhCN}
       theme={{
         token: {
-          fontSize: 17,        // 基础字号 15→17
-          fontSizeSM: 15,      // 小号字体 13→15  
-          fontSizeLG: 20,      // 大号字体 17→20
-          fontSizeXL: 24,      // 超大字体 21→24
-          fontSizeHeading1: 44,
-          fontSizeHeading2: 35,
-          fontSizeHeading3: 28,
-          fontSizeHeading4: 23,
+          fontSize: 17.5,
+          fontSizeSM: 15,
+          fontSizeLG: 20,
+          fontSizeXL: 25,
+          fontSizeHeading1: 35,
+          fontSizeHeading2: 30,
+          fontSizeHeading3: 25,
+          fontSizeHeading4: 22.5,
           fontSizeHeading5: 20,
-          lineHeight: 1.6,     // 行高 1.5→1.6
+          lineHeight: 1.5,
           borderRadius: 6,
         },
         components: {
           Table: {
             fontSize: 16,
             cellFontSize: 16,
+            cellPaddingBlock: 10,
+            cellPaddingInline: 15,
           },
           Menu: {
-            fontSize: 17,
-            itemHeight: 50,
+            fontSize: 17.5,
+            itemHeight: 52,
           },
           Button: {
-            fontSize: 17,
-            controlHeight: 40,
+            fontSize: 17.5,
+            controlHeight: 42,
           },
           Input: {
-            fontSize: 17,
+            fontSize: 17.5,
           },
           Select: {
-            fontSize: 17,
+            fontSize: 17.5,
           },
           Modal: {
-            fontSize: 17,
+            fontSize: 17.5,
             titleFontSize: 21,
           },
           Card: {
-            fontSize: 17,
+            fontSize: 17.5,
           },
           Descriptions: {
             fontSize: 16,
           },
           Form: {
-            fontSize: 17,
-            labelFontSize: 17,
+            fontSize: 17.5,
+            labelFontSize: 17.5,
           },
           Tabs: {
-            fontSize: 17,
+            fontSize: 17.5,
           },
           Tag: {
             fontSize: 15,

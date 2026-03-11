@@ -41,6 +41,8 @@ interface DeviceData {
     bound_cargo_name?: string;
     bound_shipment_id?: string;
     locate_type?: number;
+    device_mode?: number;
+    reported_rate?: number;
     service_end_at?: string;
     org_name?: string;
 }
@@ -459,10 +461,9 @@ const Devices: React.FC = () => {
         },
         {
             title: '设备型号',
-            dataIndex: 'type',
-            key: 'type',
+            key: 'model',
             width: 120,
-            render: (value: string) => value || '-',
+            render: () => 'X6',
         },
         {
             title: '设备状态',
@@ -493,15 +494,23 @@ const Devices: React.FC = () => {
         },
         {
             title: '定位类型',
-            key: 'loc_type_placeholder',
+            dataIndex: 'device_mode',
+            key: 'device_mode',
             width: 100,
-            render: () => '-',
+            render: (value: number | undefined) => {
+                if (value === undefined || value === null) return '-';
+                return value === 1 ? '运动模式' : '静止模式';
+            },
         },
         {
             title: '定位周期',
-            key: 'loc_period_placeholder',
+            dataIndex: 'reported_rate',
+            key: 'reported_rate',
             width: 100,
-            render: () => '-',
+            render: (value: number | undefined) => {
+                if (!value) return '-';
+                return `${value}分钟/次`;
+            },
         },
         {
             title: '电量',

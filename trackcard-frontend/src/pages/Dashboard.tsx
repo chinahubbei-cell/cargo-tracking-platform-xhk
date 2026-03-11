@@ -301,13 +301,13 @@ const Dashboard: React.FC = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                marginBottom: 24,
+                marginBottom: 16,
                 flexWrap: 'wrap',
-                gap: 16
+                gap: 12
             }}>
                 <div>
                     <h1 style={{
-                        fontSize: 24,
+                        fontSize: 20,
                         fontWeight: 700,
                         color: 'var(--text-primary)',
                         margin: 0
@@ -381,9 +381,9 @@ const Dashboard: React.FC = () => {
             {/* 统计卡片行 */}
             <section style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                gap: 20,
-                marginBottom: 24
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: 16,
+                marginBottom: 16
             }}>
                 <StatsCard
                     title="总运单数"
@@ -428,12 +428,12 @@ const Dashboard: React.FC = () => {
             {/* 地图和告警区域 */}
             <section style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr 380px',
-                gap: 20,
-                marginBottom: 24,
-                minHeight: 500
+                gridTemplateColumns: '1fr minmax(280px, 20%)',
+                gap: 16,
+                marginBottom: 16,
+                minHeight: 450
             }}>
-                <GlobalMap devices={devices} height="calc(100vh - 380px)" />
+                <GlobalMap devices={devices} height="calc(100vh - 340px)" />
                 <AlertList
                     alerts={alerts}
                     maxItems={5}
@@ -445,9 +445,9 @@ const Dashboard: React.FC = () => {
             {/* 图表区域 */}
             <section style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr 320px',
-                gap: 20,
-                marginBottom: 24
+                gridTemplateColumns: '1fr minmax(260px, 20%)',
+                gap: 16,
+                marginBottom: 16
             }}>
                 <TrendChart
                     title="月度运输趋势"

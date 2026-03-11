@@ -14,7 +14,7 @@
 }
 
 .searchConfig {
-    width: 200px;
+    width: 220px;
 }
 
 .filterSelect {
@@ -22,28 +22,28 @@
 }
 
 .orgSelect {
-    width: 180px;
+    width: 160px;
 }
 
 .paginationContainer {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
 }
 
 .emptyContainer {
-    padding: 40px;
+    padding: 32px;
     text-align: center;
     color: #999;
 }
 
 .emptyTitle {
-    font-size: 18px;
+    font-size: 19px;
     margin-bottom: 8px;
 }
 
 .emptyDesc {
-    font-size: 14px;
+    font-size: 16px;
 }
 
 .modalStyle {
@@ -58,8 +58,8 @@
 }
 
 .sectionDivider {
-    font-size: 14px;
-    margin: 4px 0 12px 0;
+    font-size: 16px;
+    margin: 5px 0 12px 0;
     font-weight: 500;
 }
 
@@ -91,16 +91,16 @@
 }
 
 .locationLabel {
-    margin-bottom: 4px;
+    margin-bottom: 5px;
     color: rgba(0, 0, 0, 0.85);
-    font-size: 15px;
+    font-size: 16px;
 }
 
 .locationValue {
-    height: 32px;
-    line-height: 32px;
-    font-size: 15px;
-    padding: 0 11px;
+    height: 38px;
+    line-height: 38px;
+    font-size: 16px;
+    padding: 0 14px;
     border-radius: 6px;
 }
 
@@ -144,7 +144,7 @@
 }
 
 .cardHead {
-    font-size: 18px;
+    font-size: 19px;
     font-weight: 600;
 }
 

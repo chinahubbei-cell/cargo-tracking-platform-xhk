@@ -12,6 +12,7 @@ type Device struct {
 	HighValueWarning bool           `gorm:"default:false" json:"high_value_warning"` // 高价值预警
 	Name             string         `gorm:"type:varchar(100);not null" json:"name"`
 	Type             string         `gorm:"type:varchar(50);default:'container'" json:"type"`
+	Model            string         `gorm:"type:varchar(100)" json:"model"` // 设备型号，如 X6、K6
 	Status           string         `gorm:"type:varchar(20);default:'online'" json:"status"`
 	Battery          int            `gorm:"default:100" json:"battery"`
 	Latitude         *float64       `gorm:"type:decimal(10,6)" json:"latitude"`
@@ -26,7 +27,9 @@ type Device struct {
 	Tilt             *float64       `gorm:"type:decimal(5,2)" json:"tilt"`  // 倾斜 角度
 	Light            *float64       `gorm:"type:decimal(5,2)" json:"light"` // 光照 lux
 	LocateType       *int           `gorm:"column:locate_type" json:"locate_type"`
-	OrgID            *string        `gorm:"type:varchar(50);index" json:"org_id"` // 所属组织ID
+	DeviceMode       *int           `gorm:"column:device_mode" json:"device_mode"`     // 0=静止 1=运动
+	ReportedRate     *int           `gorm:"column:reported_rate" json:"reported_rate"` // 上报周期(分钟)
+	OrgID            *string        `gorm:"type:varchar(50);index" json:"org_id"`      // 所属组织ID
 	SubAccountID     *string        `gorm:"type:varchar(50);index" json:"sub_account_id"`
 	ServiceStatus    string         `gorm:"type:varchar(20);default:'active'" json:"service_status"`
 	ServiceStartAt   *time.Time     `json:"service_start_at"`
@@ -47,6 +50,7 @@ type DeviceCreateRequest struct {
 	ID               string   `json:"id"`
 	Name             string   `json:"name"` // 可选，不再是必填
 	Type             string   `json:"type"`
+	Model            string   `json:"model"`
 	Provider         string   `json:"provider"`
 	Latitude         *float64 `json:"latitude"`
 	Longitude        *float64 `json:"longitude"`
@@ -60,6 +64,7 @@ type DeviceCreateRequest struct {
 type DeviceUpdateRequest struct {
 	Name             *string  `json:"name"`
 	Type             *string  `json:"type"`
+	Model            *string  `json:"model"`
 	Provider         *string  `json:"provider"`
 	Status           *string  `json:"status"`
 	Battery          *int     `json:"battery"`

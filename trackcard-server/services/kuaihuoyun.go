@@ -29,17 +29,19 @@ type KuaihuoyunService struct {
 }
 
 type DeviceInfo struct {
-	Device      string   `json:"device"`
-	Status      int      `json:"status"`
-	PowerRate   int      `json:"powerRate"`
-	Latitude    float64  `json:"latitude"`
-	Longitude   float64  `json:"longitude"`
-	Speed       float64  `json:"speed"`
-	Direction   float64  `json:"direction"`
-	LocateType  int      `json:"locateType"`
-	LocateTime  int64    `json:"locateTime"`
-	Temperature *float64 `json:"temperature"`
-	Humidity    *float64 `json:"humidity"`
+	Device       string   `json:"device"`
+	Status       int      `json:"status"`
+	PowerRate    int      `json:"powerRate"`
+	Latitude     float64  `json:"latitude"`
+	Longitude    float64  `json:"longitude"`
+	Speed        float64  `json:"speed"`
+	Direction    float64  `json:"direction"`
+	LocateType   int      `json:"locateType"`
+	LocateTime   int64    `json:"locateTime"`
+	Mode         int      `json:"mode"`         // 0=静止模式 1=运动模式
+	ReportedRate int      `json:"reportedRate"` // 上报周期（分钟）
+	Temperature  *float64 `json:"temperature"`
+	Humidity     *float64 `json:"humidity"`
 }
 
 type TrackData struct {

@@ -27,22 +27,26 @@ func updateDeviceFromExternal(db *gorm.DB, device *models.Device, ext *services.
 	device.Speed = ext.Speed
 	device.Direction = ext.Direction
 	device.LocateType = &ext.LocateType
+	device.DeviceMode = &ext.Mode
+	device.ReportedRate = &ext.ReportedRate
 	device.Temperature = ext.Temperature
 	device.Humidity = ext.Humidity
 	locateTime := time.Unix(ext.LocateTime, 0)
 	device.LastUpdate = locateTime
 
 	db.Model(device).Updates(map[string]interface{}{
-		"status":      device.Status,
-		"battery":     device.Battery,
-		"latitude":    device.Latitude,
-		"longitude":   device.Longitude,
-		"speed":       device.Speed,
-		"direction":   device.Direction,
-		"locate_type": device.LocateType,
-		"temperature": device.Temperature,
-		"humidity":    device.Humidity,
-		"last_update": device.LastUpdate,
+		"status":        device.Status,
+		"battery":       device.Battery,
+		"latitude":      device.Latitude,
+		"longitude":     device.Longitude,
+		"speed":         device.Speed,
+		"direction":     device.Direction,
+		"locate_type":   device.LocateType,
+		"device_mode":   device.DeviceMode,
+		"reported_rate": device.ReportedRate,
+		"temperature":   device.Temperature,
+		"humidity":      device.Humidity,
+		"last_update":   device.LastUpdate,
 	})
 }
 
@@ -287,6 +291,7 @@ func (h *DeviceHandler) Create(c *gin.Context) {
 		ID:               req.ID,
 		Name:             req.Name,
 		Type:             req.Type,
+		Model:            req.Model,
 		Provider:         req.Provider,
 		Latitude:         req.Latitude,
 		Longitude:        req.Longitude,
@@ -302,6 +307,9 @@ func (h *DeviceHandler) Create(c *gin.Context) {
 	}
 	if device.Provider == "" {
 		device.Provider = "kuaihuoyun"
+	}
+	if device.Model == "" {
+		device.Model = "X6"
 	}
 	// 如果没有设置名称，使用设备ID作为默认名称
 	if device.Name == "" {
