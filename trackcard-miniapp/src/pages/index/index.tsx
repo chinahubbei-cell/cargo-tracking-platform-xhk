@@ -39,7 +39,6 @@ function Index() {
   const handleScan = async () => {
     try {
       const res = await Taro.scanCode({ scanType: ['barCode', 'qrCode'] })
-      console.log(res.result)
       const deviceId = res.result
       // Ideally show modal to select shipment to bind, or bind to new.
       // For MVP, lets just Toast the result or navigate to bind page.
@@ -69,10 +68,11 @@ function Index() {
     <View className="index-page" style={{ height: '100vh', backgroundColor: '#f5f5f5' }}>
       <View style={{ padding: '10px', backgroundColor: '#fff' }}>
         <SearchBar
-          placeholder="搜索运单号/客户"
+          placeholder="搜索运单号/客户名称"
           value={keyword}
           onChange={(val) => setKeyword(val)}
-          onSearch={fetchList}
+          onSearch={() => fetchList()}
+          onClear={() => { setKeyword(''); setTimeout(() => fetchList(), 100) }}
         />
       </View>
 

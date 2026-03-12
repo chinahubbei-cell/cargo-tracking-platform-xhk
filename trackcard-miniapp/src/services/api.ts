@@ -89,6 +89,14 @@ export const ShipmentService = {
     unbindDevice: (shipmentId: string) => request(`/shipments/${shipmentId}`, 'PUT', { device_id: '' }),
 }
 
+export const GeoService = {
+    // 逆地理编码：坐标 → 结构化省市信息（与PC端 AddressInput 解析逻辑统一）
+    reverseGeocode: (lat: number, lng: number) =>
+        request<{ success: boolean; data: { display_name: string; province: string; city: string; district: string; country: string; short_name: string } }>(
+            '/geocode/reverse', 'GET', { lat, lng }
+        ),
+}
+
 export const ConfigService = {
     getShipmentFieldConfig: () => request<{ success?: boolean; data?: ShipmentFieldConfig } | ShipmentFieldConfig>('/config/shipment-fields', 'GET'),
 }

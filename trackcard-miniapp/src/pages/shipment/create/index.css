@@ -14,3 +14,38 @@
 .nut-form-item__label {
     width: 90px;
 }
+
+/* 路线摘要展示 */
+.route-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+}
+
+.route-item {
+    flex: 1;
+    text-align: center;
+}
+
+.route-value {
+    font-size: 16px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.route-arrow {
+    font-size: 20px;
+    color: #52c41a;
+    padding: 0 12px;
+    font-weight: bold;
+}
+
+.route-label {
+    font-size: 12px;
+    color: #999;
+}

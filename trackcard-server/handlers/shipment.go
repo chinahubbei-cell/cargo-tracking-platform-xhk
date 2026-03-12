@@ -104,8 +104,8 @@ func (h *ShipmentHandler) List(c *gin.Context) {
 		// Slow Path: Fuzzy search across multiple fields
 		escapedSearch := strings.ReplaceAll(search, "%", "\\%")
 		escapedSearch = strings.ReplaceAll(escapedSearch, "_", "\\_")
-		query = query.Where("id LIKE ? OR origin LIKE ? OR destination LIKE ? OR bill_of_lading LIKE ? OR container_no LIKE ?",
-			"%"+escapedSearch+"%", "%"+escapedSearch+"%", "%"+escapedSearch+"%", "%"+escapedSearch+"%", "%"+escapedSearch+"%")
+		query = query.Where("id LIKE ? OR origin LIKE ? OR destination LIKE ? OR bill_of_lading LIKE ? OR container_no LIKE ? OR sender_name LIKE ? OR receiver_name LIKE ? OR cargo_name LIKE ?",
+			"%"+escapedSearch+"%", "%"+escapedSearch+"%", "%"+escapedSearch+"%", "%"+escapedSearch+"%", "%"+escapedSearch+"%", "%"+escapedSearch+"%", "%"+escapedSearch+"%", "%"+escapedSearch+"%")
 	}
 
 	// Data permission filter
