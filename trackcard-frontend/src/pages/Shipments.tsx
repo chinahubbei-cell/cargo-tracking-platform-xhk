@@ -570,10 +570,13 @@ const Shipments: React.FC = () => {
             '总费用': s.total_cost ?? '',
             '设备ID': (() => {
                 if (s.device?.external_device_id) return s.device.external_device_id;
-                if (s.device_id) return s.device_id;
+                if (s.device_id) {
+                    const found = devices.find(d => d.id === s.device_id);
+                    return found?.external_device_id || s.device_id.replace(/^GC-/, '');
+                }
                 if (s.unbound_device_id) {
                     const found = devices.find(d => d.id === s.unbound_device_id);
-                    return found?.external_device_id || s.unbound_device_id;
+                    return found?.external_device_id || s.unbound_device_id.replace(/^GC-/, '');
                 }
                 return '';
             })(),
@@ -1096,7 +1099,7 @@ const Shipments: React.FC = () => {
                     if (foundDevice?.external_device_id) {
                         return <span className={styles.deviceId}>{foundDevice.external_device_id}</span>;
                     }
-                    return <span className={styles.deviceId}>{record.device_id}</span>;
+                    return <span className={styles.deviceId}>{record.device_id.replace(/^GC-/, '')}</span>;
                 }
                 // 如果已解绑，显示解绑前的设备ID
                 if (record.unbound_device_id) {
@@ -1105,7 +1108,7 @@ const Shipments: React.FC = () => {
                     if (foundDevice?.external_device_id) {
                         return <span className={styles.deviceId}>{foundDevice.external_device_id}</span>;
                     }
-                    return <span className={styles.deviceId}>{record.unbound_device_id}</span>;
+                    return <span className={styles.deviceId}>{record.unbound_device_id.replace(/^GC-/, '')}</span>;
                 }
                 return '-';
             },
@@ -1801,11 +1804,11 @@ const Shipments: React.FC = () => {
                                                         if (device?.external_device_id) return device.external_device_id;
                                                         if (viewingShipment.device_id) {
                                                             const found = devices.find(d => d.id === viewingShipment.device_id);
-                                                            return found?.external_device_id || viewingShipment.device_id;
+                                                            return found?.external_device_id || viewingShipment.device_id.replace(/^GC-/, '');
                                                         }
                                                         if (viewingShipment.unbound_device_id) {
                                                             const found = devices.find(d => d.id === viewingShipment.unbound_device_id);
-                                                            return found?.external_device_id || viewingShipment.unbound_device_id;
+                                                            return found?.external_device_id || viewingShipment.unbound_device_id.replace(/^GC-/, '');
                                                         }
                                                         return <Tag color="orange">未绑定</Tag>;
                                                     })()}

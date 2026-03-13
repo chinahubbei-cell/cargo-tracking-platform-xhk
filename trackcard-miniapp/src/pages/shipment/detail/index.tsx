@@ -523,11 +523,67 @@ function ShipmentDetail() {
     const showDocSection = fieldConfig.bill_of_lading || fieldConfig.container_no || fieldConfig.seal_no
     const showVesselVoyage = fieldConfig.vessel_name || fieldConfig.voyage_no
 
+    // 从二维码内容中提取设备号（支持多种格式：URL、JSON、纯文本）
+    const extractDeviceIdFromQR = (qrContent: string): string => {
+        const content = (qrContent || '').trim()
+        if (!content) return ''
+
+        // 格式1: URL 带 imei/id/deviceId 参数 (如 https://xxx.com?imei=GC-f4855768)
+        if (content.startsWith('http://') || content.startsWith('https://')) {
+            try {
+                const url = new URL(content)
+                const params = url.searchParams
+                const paramKeys = ['imei', 'id', 'deviceId', 'device_id', 'sn', 'devid']
+                for (const key of paramKeys) {
+                    const val = params.get(key)
+                    if (val) return val
+                }
+                // URL 路径最后一段可能是设备号 (如 https://xxx.com/device/GC-f4855768)
+                const pathParts = url.pathname.split('/').filter(Boolean)
+                if (pathParts.length > 0) {
+                    const lastPart = pathParts[pathParts.length - 1]
+                    if (/^[A-Za-z0-9_-]{4,}$/.test(lastPart)) return lastPart
+                }
+            } catch (e) {
+                console.warn('QR URL 解析失败:', e)
+            }
+        }
+
+        // 格式2: JSON (如 {"deviceId": "GC-f4855768"})
+        if (content.startsWith('{')) {
+            try {
+                const obj = JSON.parse(content)
+                return obj.deviceId || obj.device_id || obj.imei || obj.id || obj.sn || ''
+            } catch (e) {
+                console.warn('QR JSON 解析失败:', e)
+            }
+        }
+
+        // 格式3: 纯设备号文本 (如 GC-f4855768, 868120345678901)
+        return content
+    }
+
     const handleBindDevice = async () => {
         try {
             const res = await Taro.scanCode({ scanType: ['barCode', 'qrCode'] })
-            const deviceId = res.result
-            if (!deviceId) return
+            console.log('[ScanCode] 扫码原始结果:', res.result)
+
+            const deviceId = extractDeviceIdFromQR(res.result)
+            console.log('[ScanCode] 提取设备号:', deviceId)
+
+            if (!deviceId) {
+                Taro.showToast({ title: '未识别到设备号', icon: 'none' })
+                return
+            }
+
+            // 让用户确认设备号
+            const confirmRes = await Taro.showModal({
+                title: '确认绑定',
+                content: `设备号: ${deviceId}\n确认绑定到当前运单？`,
+                confirmText: '确认',
+                cancelText: '取消',
+            })
+            if (!confirmRes.confirm) return
 
             Taro.showLoading({ title: '绑定中...' })
             await ShipmentService.bindDevice(id as string, deviceId)
@@ -536,9 +592,9 @@ function ShipmentDetail() {
             fetchDetail()
         } catch (err: any) {
             Taro.hideLoading()
-            console.error(err)
+            console.error('[ScanCode] 绑定失败:', err)
             if (err.errMsg && err.errMsg.indexOf('scanCode:fail') === -1) {
-                Taro.showToast({ title: '绑定失败', icon: 'none' })
+                Taro.showToast({ title: '绑定失败: ' + (err.message || ''), icon: 'none' })
             }
         }
     }
@@ -582,11 +638,17 @@ function ShipmentDetail() {
     const mapLatitude = markers.length > 0 ? markers[0].latitude : fallbackLat
     const mapLongitude = markers.length > 0 ? markers[0].longitude : fallbackLng
 
+    // Helper to format historical device ID (removes GC- prefix if it's the only info we have)
+    const formatUnboundDeviceId = (id: string) => {
+        if (!id) return '';
+        return id.startsWith('GC-') ? id.replace('GC-', '') : id;
+    };
+
     const deviceDisplayId =
         detail.device?.external_device_id ||
-        detail.device?.id ||
-        detail.device_id ||
-        (detail.unbound_device_id ? `${detail.unbound_device_id} (已解绑)` : '未绑定')
+        (detail.device?.id ? detail.device.id.replace(/^GC-/, '') : '') ||
+        (detail.device_id ? detail.device_id.replace(/^GC-/, '') : '') ||
+        (detail.unbound_device_id ? `${formatUnboundDeviceId(detail.unbound_device_id)} (已解绑)` : '未绑定')
 
     return (
         <View className="detail-container">
@@ -767,9 +829,18 @@ function ShipmentDetail() {
                             <Text className="floating-device-title">已绑定设备ID</Text>
                             <Text className="floating-device-id">{deviceDisplayId}</Text>
                         </View>
-                        <Button type="warning" size="small" onClick={handleUnbindDevice}>
-                            解绑
-                        </Button>
+                        {['delivered', 'cancelled'].includes(detail.status) ? null : (
+                            <Button type="warning" size="small" onClick={handleUnbindDevice}>
+                                解绑
+                            </Button>
+                        )}
+                    </View>
+                ) : ['delivered', 'cancelled'].includes(detail.status) ? (
+                    <View className="floating-device-content bound">
+                        <View className="floating-device-text">
+                            <Text className="floating-device-title">{detail.unbound_device_id ? '历史绑定设备' : '未绑定设备'}</Text>
+                            <Text className="floating-device-id">{deviceDisplayId}</Text>
+                        </View>
                     </View>
                 ) : (
                     <View className="floating-device-content unbound">

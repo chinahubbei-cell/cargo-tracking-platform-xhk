@@ -230,9 +230,6 @@ const Login: React.FC = () => {
                     ]}
                 />
 
-                <div style={{ textAlign: 'center' }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>默认账号：admin@trackcard.com / admin123</Text>
-                </div>
             </Card>
 
             <Modal title="选择登录机构" open={orgSelectVisible} onOk={confirmSelectOrg} onCancel={() => setOrgSelectVisible(false)} confirmLoading={loading} okText="确认进入">

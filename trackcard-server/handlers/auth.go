@@ -234,10 +234,6 @@ func (h *AuthHandler) checkCode(phoneCountryCode, phoneNumber, code, scene strin
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
-	if gin.Mode() == gin.ReleaseMode {
-		utils.Forbidden(c, "当前生产环境仅支持手机号登录")
-		return
-	}
 
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

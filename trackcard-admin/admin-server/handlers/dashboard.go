@@ -21,7 +21,6 @@ func NewDashboardHandler(db *gorm.DB) *DashboardHandler {
 // GetStats 获取仪表盘统计
 func (h *DashboardHandler) GetStats(c *gin.Context) {
 	var orgTotal, orgActive, orgExpiring, orgExpired int64
-	var orderPending, orderProcessing, orderCompleted int64
 	var deviceTotal, deviceInStock, deviceAllocated, deviceActivated int64
 
 	// 组织统计
@@ -34,22 +33,11 @@ func (h *DashboardHandler) GetStats(c *gin.Context) {
 		Count(&orgExpiring)
 	h.db.Model(&models.Organization{}).Where("service_status = ?", "expired").Count(&orgExpired)
 
-	// 订单统计
-	h.db.Model(&models.HardwareOrder{}).Where("order_status = ?", "pending").Count(&orderPending)
-	h.db.Model(&models.HardwareOrder{}).
-		Where("order_status IN ?", []string{"confirmed", "processing", "shipped"}).
-		Count(&orderProcessing)
-	h.db.Model(&models.HardwareOrder{}).Where("order_status = ?", "completed").Count(&orderCompleted)
-
 	// 设备统计
 	h.db.Model(&models.HardwareDevice{}).Count(&deviceTotal)
 	h.db.Model(&models.HardwareDevice{}).Where("status = ?", "in_stock").Count(&deviceInStock)
 	h.db.Model(&models.HardwareDevice{}).Where("status = ?", "allocated").Count(&deviceAllocated)
 	h.db.Model(&models.HardwareDevice{}).Where("status = ?", "activated").Count(&deviceActivated)
-
-	// 最近订单
-	var recentOrders []models.HardwareOrder
-	h.db.Order("created_at DESC").Limit(5).Find(&recentOrders)
 
 	// 即将到期组织
 	var expiringOrgs []models.Organization
@@ -65,18 +53,12 @@ func (h *DashboardHandler) GetStats(c *gin.Context) {
 				"expiring": orgExpiring,
 				"expired":  orgExpired,
 			},
-			"orders": gin.H{
-				"pending":    orderPending,
-				"processing": orderProcessing,
-				"completed":  orderCompleted,
-			},
 			"devices": gin.H{
 				"total":     deviceTotal,
 				"in_stock":  deviceInStock,
 				"allocated": deviceAllocated,
 				"activated": deviceActivated,
 			},
-			"recent_orders": recentOrders,
 			"expiring_orgs": expiringOrgs,
 		},
 	})

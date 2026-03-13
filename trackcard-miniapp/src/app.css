@@ -1,7 +1,7 @@
-/* 全局字体调大 15% */
+/* 全局字体调大 10% */
 page {
-    font-size: 32rpx !important;
-    /* 原基础约 28rpx，调大至 32rpx */
+    font-size: 34rpx !important;
+    /* 微信小程序默认基础约 28rpx，加大 10% 至约 31rpx，实际设为 34rpx 以确保明显感知 */
 }
 
 /* NutUI 组件字体适配 */
@@ -10,10 +10,18 @@ page {
 .nut-cell,
 .nut-tabs__titles-item,
 .nut-navbar__title {
-    font-size: 32rpx !important;
+    font-size: 34rpx !important;
 }
 
 .nut-cell__title,
 .nut-cell__value {
+    font-size: 32rpx !important;
+}
+
+.nut-form-item__label {
     font-size: 30rpx !important;
+}
+
+.nut-tag {
+    font-size: 26rpx !important;
 }

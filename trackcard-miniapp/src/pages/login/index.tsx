@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { Button, Input, Toast, Form } from '@nutui/nutui-react-taro'
+import { Button, Input, Form } from '@nutui/nutui-react-taro'
 import { AuthService } from '../../services/api'
 import './index.css'
 
@@ -17,14 +17,13 @@ function Login() {
         setLoading(true)
         try {
             const loginRes = await Taro.login()
-            console.log('WeChat Code:', loginRes.code)
+            console.log('[Login] Taro.login code:', loginRes.code)
 
             const res: any = await AuthService.login(loginRes.code)
-            console.log('Auth Res:', res)
+            console.log('[Login] AuthService.login response:', JSON.stringify(res))
 
             if (res.code === 'USER_NOT_FOUND') {
-                Toast.show('请绑定已有账号')
-                // No need to store openid, backend handles it via code
+                Taro.showToast({ title: '请绑定已有账号', icon: 'none', duration: 2000 })
                 setShowBind(true)
             } else {
                 // Support both flat and nested structure
@@ -34,15 +33,22 @@ function Login() {
                 if (token) {
                     Taro.setStorageSync('token', token)
                     Taro.setStorageSync('user', user)
-                    Toast.show({ title: '登录成功', icon: 'success' })
+                    Taro.showToast({ title: '登录成功', icon: 'success', duration: 1500 })
                     setTimeout(() => {
                         Taro.reLaunch({ url: '/pages/index/index' })
-                    }, 1000)
+                    }, 1500)
+                } else {
+                    console.error('[Login] No token in response:', res)
+                    Taro.showToast({ title: '登录异常，请重试', icon: 'none', duration: 2000 })
                 }
             }
-        } catch (err) {
-            console.error(err)
-            // Error handling is managed by request interceptor/wrapper
+        } catch (err: any) {
+            console.error('[Login] Error:', err)
+            Taro.showToast({
+                title: err?.message || '登录失败，请检查网络',
+                icon: 'none',
+                duration: 2000
+            })
         } finally {
             setLoading(false)
         }
@@ -50,14 +56,14 @@ function Login() {
 
     const handleBind = async () => {
         if (!email || !password) {
-            Toast.show('请填写完整')
+            Taro.showToast({ title: '请填写完整', icon: 'none' })
             return
         }
         setLoading(true)
         try {
             // Get fresh code for binding (backend needs it for Code2Session)
             const loginRes = await Taro.login()
-            console.log('Bind Code:', loginRes.code)
+            console.log('[Bind] Taro.login code:', loginRes.code)
 
             // Send code, username (email), password.
             const res: any = await AuthService.bind({
@@ -65,37 +71,29 @@ function Login() {
                 username: email,
                 password
             })
-
-            console.log('Bind Res:', res)
+            console.log('[Bind] AuthService.bind response:', JSON.stringify(res))
 
             // Support both flat and nested structure
             const token = res.token || res.data?.token
             const user = res.user || res.data?.user
 
             if (token) {
-                console.log('Bind Success, Token:', token)
                 Taro.setStorageSync('token', token)
                 Taro.setStorageSync('user', user)
-                Toast.show({ title: '绑定成功', icon: 'success' })
+                Taro.showToast({ title: '绑定成功', icon: 'success', duration: 1500 })
                 setTimeout(() => {
-                    // Switch tab because index is a tab bar page now
-                    Taro.switchTab({ url: '/pages/index/index' })
-                        .catch(() => {
-                            // Fallback if not a tab bar page
-                            Taro.reLaunch({ url: '/pages/index/index' })
-                        })
-                }, 1000)
+                    Taro.reLaunch({ url: '/pages/index/index' })
+                }, 1500)
             } else {
-                console.warn('Bind Success but NO Token found in response:', res)
-                Toast.show('绑定异常，请重试')
+                console.error('[Bind] No token in response:', res)
+                Taro.showToast({ title: '绑定异常，请重试', icon: 'none', duration: 2000 })
             }
         } catch (err: any) {
-            console.error('Bind Error:', err)
-            // request.ts throws Error with message from backend
+            console.error('[Bind] Error:', err)
             if (err.message && (err.message.includes('Invalid email') || err.message.includes('password'))) {
-                Toast.show('账号或密码错误')
+                Taro.showToast({ title: '账号或密码错误', icon: 'none', duration: 2000 })
             } else {
-                Toast.show('绑定失败，请重试')
+                Taro.showToast({ title: err?.message || '绑定失败，请重试', icon: 'none', duration: 2000 })
             }
         } finally {
             setLoading(false)
@@ -105,7 +103,7 @@ function Login() {
     return (
         <View className="login-container">
             <View className="login-header">
-                <Text className="login-title">Cargo Tracking</Text>
+                <Text className="login-title">全球货物追踪平台</Text>
             </View>
 
             {!showBind ? (
@@ -120,12 +118,12 @@ function Login() {
             ) : (
                 <View>
                     <View className="bind-header">
-                        <Text>绑定已有账号</Text>
+                        <Text>首次使用，请绑定已有账号</Text>
                     </View>
                     <Form>
-                        <Form.Item label="邮箱" name="email">
+                        <Form.Item label="账号" name="email">
                             <Input
-                                placeholder="请输入邮箱"
+                                placeholder="请输入账号"
                                 value={email}
                                 onChange={(val: any) => setEmail(String(val))}
                             />
@@ -147,7 +145,7 @@ function Login() {
                         loading={loading}
                         onClick={handleBind}
                     >
-                        确认绑定
+                        确认登录
                     </Button>
                     <Button
                         fill="none"
@@ -159,7 +157,6 @@ function Login() {
                     </Button>
                 </View>
             )}
-            <Toast />
         </View>
     )
 }

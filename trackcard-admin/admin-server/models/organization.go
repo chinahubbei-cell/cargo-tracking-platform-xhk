@@ -56,6 +56,8 @@ type Organization struct {
 	ContactPhone string `gorm:"size:20" json:"contact_phone"`
 	ContactEmail string `gorm:"size:100" json:"contact_email"`
 	Address      string `gorm:"size:500" json:"address"`
+	CompanyName  string `gorm:"size:200" json:"company_name"`
+	CreditCode   string `gorm:"size:18" json:"credit_code"`
 
 	// 层级架构
 	ParentID string `gorm:"size:50;index" json:"parent_id"`
@@ -115,4 +117,28 @@ func (o *Organization) DaysUntilExpiry() int {
 		return 0
 	}
 	return days
+}
+
+// ServiceRenewal 服务续费记录
+type ServiceRenewal struct {
+	ID          string `gorm:"primaryKey" json:"id"`
+	OrgID       string `gorm:"size:50;not null" json:"org_id"`
+	OrderID     string `gorm:"size:50" json:"order_id"`
+	RenewalType string `gorm:"size:20;not null" json:"renewal_type"` // manual, auto, upgrade
+
+	PeriodMonths int     `json:"period_months"`
+	Amount       float64 `json:"amount"`
+
+	OldEndDate *time.Time `json:"old_end_date"`
+	NewEndDate *time.Time `json:"new_end_date"`
+
+	CreatedAt time.Time `json:"created_at"`
+	CreatedBy string    `gorm:"size:50" json:"created_by"`
+}
+
+func (r *ServiceRenewal) BeforeCreate(tx *gorm.DB) error {
+	if r.ID == "" {
+		r.ID = uuid.New().String()
+	}
+	return nil
 }

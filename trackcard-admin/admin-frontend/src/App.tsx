@@ -7,7 +7,8 @@ import MainLayout from './layouts/MainLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Organizations from './pages/Organizations';
-import Orders from './pages/Orders';
+import CustomerDetail from './pages/CustomerDetail';
+
 import Devices from './pages/Devices';
 import 'antd/dist/reset.css';
 
@@ -34,7 +35,8 @@ const AppRoutes: React.FC = () => {
             >
                 <Route index element={<Dashboard />} />
                 <Route path="orgs" element={<Organizations />} />
-                <Route path="orders" element={<Orders />} />
+                <Route path="orgs/:id" element={<CustomerDetail />} />
+
                 <Route path="devices" element={<Devices />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

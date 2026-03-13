@@ -8,7 +8,7 @@ export default defineAppConfig({
   window: {
     backgroundTextStyle: 'light',
     navigationBarBackgroundColor: '#fff',
-    navigationBarTitleText: 'WeChat',
+    navigationBarTitleText: '全球货运追踪平台',
     navigationBarTextStyle: 'black'
   },
   permission: {
@@ -16,5 +16,5 @@ export default defineAppConfig({
       desc: '你的位置将用于在地图上展示货物与您的距离'
     }
   },
-  requiredPrivateInfos: ['getLocation']
+  requiredPrivateInfos: ['getLocation', 'chooseLocation']
 })

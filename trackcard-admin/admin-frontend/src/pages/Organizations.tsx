@@ -1,51 +1,51 @@
 import React, { useEffect, useState } from 'react';
 import {
-    Table, Button, Space, Tag, Modal, Form, Input, InputNumber,
-    DatePicker, Select, message, Typography, Card, Row, Col, Popconfirm
+    Table, Button, Space, Tag, Form, Input, Select,
+    message, Typography, Row, Col, Popconfirm, Progress, Tabs
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined, DollarOutlined } from '@ant-design/icons';
 import { orgApi } from '../services/api';
+import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
+import CreateCustomerModal from '../components/CreateCustomerModal';
+import RenewModal from '../components/RenewModal';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
+
+const statusColors: Record<string, string> = {
+    trial: 'blue', active: 'green', suspended: 'default', expired: 'red',
+};
+const statusLabels: Record<string, string> = {
+    trial: '试用', active: '正常', suspended: '暂停', expired: '已过期',
+};
 
 const Organizations: React.FC = () => {
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
-    const [modalVisible, setModalVisible] = useState(false);
-    const [editingOrg, setEditingOrg] = useState<any>(null);
-    const [form] = Form.useForm();
+    const [createVisible, setCreateVisible] = useState(false);
+    const [renewVisible, setRenewVisible] = useState(false);
+    const [renewOrg, setRenewOrg] = useState<any>(null);
+    const [statusFilter, setStatusFilter] = useState('');
+    const [keyword, setKeyword] = useState('');
+    const navigate = useNavigate();
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [statusFilter, keyword]);
 
     const fetchData = async () => {
         setLoading(true);
         try {
-            const res = await orgApi.list();
+            const params: any = {};
+            if (statusFilter) params.status = statusFilter;
+            if (keyword) params.keyword = keyword;
+            const res = await orgApi.list(params);
             if (res.data.success) {
                 setData(res.data.data || []);
             }
         } finally {
             setLoading(false);
         }
-    };
-
-    const handleCreate = () => {
-        setEditingOrg(null);
-        form.resetFields();
-        setModalVisible(true);
-    };
-
-    const handleEdit = (record: any) => {
-        setEditingOrg(record);
-        form.setFieldsValue({
-            ...record,
-            service_start: record.service_start ? dayjs(record.service_start) : null,
-            service_end: record.service_end ? dayjs(record.service_end) : null,
-        });
-        setModalVisible(true);
     };
 
     const handleDelete = async (id: string) => {
@@ -58,92 +58,114 @@ const Organizations: React.FC = () => {
         }
     };
 
-    const handleSubmit = async () => {
-        const values = await form.validateFields();
-        const payload = {
-            ...values,
-            service_start: values.service_start?.toISOString(),
-            service_end: values.service_end?.toISOString(),
-        };
+    const openRenew = (record: any) => {
+        setRenewOrg(record);
+        setRenewVisible(true);
+    };
 
-        try {
-            if (editingOrg) {
-                await orgApi.update(editingOrg.id, payload);
-                message.success('更新成功');
-            } else {
-                await orgApi.create(payload);
-                message.success('创建成功');
-            }
-            setModalVisible(false);
-            fetchData();
-        } catch {
-            message.error('操作失败');
-        }
+    const parentOptions = data.filter(org => org.level === 1);
+
+    const getDaysUntilExpiry = (endDate: string) => {
+        if (!endDate) return null;
+        const days = dayjs(endDate).diff(dayjs(), 'day');
+        return days;
     };
 
     const columns = [
         {
-            title: '组织名称',
+            title: '客户名称',
             dataIndex: 'name',
             key: 'name',
-            width: 250,
+            width: 220,
             render: (text: string, record: any) => (
                 <Space>
                     {record.level === 1 || !record.level ? (
-                        <Tag color="blue">一级机构</Tag>
+                        <Tag color="blue">主账号</Tag>
                     ) : (
-                        <Tag color="cyan">二级{record.level > 2 ? '及以上' : ''}机构</Tag>
+                        <Tag color="cyan">子账号</Tag>
                     )}
-                    {text}
+                    <a onClick={() => navigate(`/orgs/${record.id}`)}>{text}</a>
                 </Space>
             )
         },
-        { title: '上级机构', dataIndex: 'parent_name', key: 'parent_name', width: 180, render: (t: string) => t || '-' },
-        { title: '简称', dataIndex: 'short_name', key: 'short_name', width: 100 },
+        {
+            title: '公司名称',
+            dataIndex: 'company_name',
+            key: 'company_name',
+            width: 200,
+            ellipsis: true,
+            render: (t: string) => t || '-',
+        },
         { title: '联系人', dataIndex: 'contact_name', key: 'contact_name', width: 100 },
         { title: '联系电话', dataIndex: 'contact_phone', key: 'contact_phone', width: 130 },
-        { title: '邮箱', dataIndex: 'contact_email', key: 'contact_email', width: 180, ellipsis: true },
-        { title: '地址', dataIndex: 'address', key: 'address', width: 220, ellipsis: true },
-        { title: '备注', dataIndex: 'remark', key: 'remark', width: 150, ellipsis: true },
         {
             title: '服务状态',
             dataIndex: 'service_status',
             key: 'service_status',
-            width: 100,
-            render: (status: string) => {
-                const colors: Record<string, string> = {
-                    trial: 'blue', active: 'green', suspended: 'orange', expired: 'red',
-                };
-                const labels: Record<string, string> = {
-                    trial: '试用', active: '正常', suspended: '暂停', expired: '已过期',
-                };
-                return <Tag color={colors[status]}>{labels[status] || status}</Tag>;
+            width: 110,
+            render: (status: string, record: any) => {
+                if (record.level > 1) return <Tag>继承主账号</Tag>;
+                const days = getDaysUntilExpiry(record.service_end);
+                if (status === 'active' && days !== null && days <= 30 && days >= 0) {
+                    return <Tag color="orange">即将到期</Tag>;
+                }
+                return <Tag color={statusColors[status]}>{statusLabels[status] || status}</Tag>;
             },
         },
         {
-            title: '服务开始',
-            dataIndex: 'service_start',
-            key: 'service_start',
-            width: 120,
-            render: (t: string) => t ? dayjs(t).format('YYYY-MM-DD') : '-',
-        },
-        {
-            title: '服务到期',
+            title: '到期日期',
             dataIndex: 'service_end',
             key: 'service_end',
+            width: 140,
+            render: (t: string, record: any) => {
+                if (record.level > 1) return '-';
+                if (!t) return '-';
+                const days = getDaysUntilExpiry(t);
+                return (
+                    <Space direction="vertical" size={0}>
+                        <Text>{dayjs(t).format('YYYY-MM-DD')}</Text>
+                        {days !== null && days <= 30 && days >= 0 && (
+                            <Text type="danger" style={{ fontSize: 12 }}>剩余{days}天</Text>
+                        )}
+                    </Space>
+                );
+            },
+        },
+        {
+            title: '设备配额',
+            key: 'device_quota',
+            width: 130,
+            render: (_: any, record: any) => {
+                if (record.level > 1) return '-';
+                const used = record.device_count || 0;
+                const max = record.max_devices || 10;
+                const percent = Math.min(Math.round((used / max) * 100), 100);
+                return (
+                    <Space direction="vertical" size={0} style={{ width: '100%' }}>
+                        <Text style={{ fontSize: 12 }}>{used} / {max}</Text>
+                        <Progress percent={percent} size="small" showInfo={false}
+                            strokeColor={percent > 90 ? '#ff4d4f' : '#1890ff'} />
+                    </Space>
+                );
+            },
+        },
+        {
+            title: '创建时间',
+            dataIndex: 'created_at',
+            key: 'created_at',
             width: 120,
             render: (t: string) => t ? dayjs(t).format('YYYY-MM-DD') : '-',
         },
-        { title: '最大设备数', dataIndex: 'max_devices', key: 'max_devices', width: 100 },
-        { title: '最大用户数', dataIndex: 'max_users', key: 'max_users', width: 100 },
-        { title: '月运单配额', dataIndex: 'max_shipments', key: 'max_shipments', width: 110 },
         {
             title: '操作',
             key: 'action',
-            width: 150,
+            width: 200,
             render: (_: any, record: any) => (
                 <Space>
-                    <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+                    <Button size="small" icon={<EditOutlined />} onClick={() => navigate(`/orgs/${record.id}`)}>详情</Button>
+                    {record.level <= 1 && (
+                        <Button size="small" icon={<DollarOutlined />} onClick={() => openRenew(record)}>续费</Button>
+                    )}
                     <Popconfirm title="确定删除？" onConfirm={() => handleDelete(record.id)}>
                         <Button size="small" danger icon={<DeleteOutlined />} />
                     </Popconfirm>
@@ -152,122 +174,62 @@ const Organizations: React.FC = () => {
         },
     ];
 
+    const statusTabs = [
+        { key: '', label: '全部' },
+        { key: 'trial', label: '试用' },
+        { key: 'active', label: '正常' },
+        { key: 'expired', label: '已过期' },
+        { key: 'suspended', label: '暂停' },
+    ];
+
     return (
         <div>
             <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
-                <Title level={4} style={{ margin: 0 }}>组织管理</Title>
+                <Title level={4} style={{ margin: 0 }}>客户管理</Title>
                 <Space>
+                    <Input.Search
+                        placeholder="搜索客户名称/联系人/电话"
+                        allowClear
+                        style={{ width: 260 }}
+                        onSearch={val => setKeyword(val)}
+                    />
                     <Button icon={<ReloadOutlined />} onClick={fetchData}>刷新</Button>
-                    <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-                        新增组织
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateVisible(true)}>
+                        新增客户
                     </Button>
                 </Space>
             </Row>
+
+            <Tabs
+                activeKey={statusFilter}
+                onChange={key => setStatusFilter(key)}
+                items={statusTabs}
+                style={{ marginBottom: 8 }}
+            />
 
             <Table
                 dataSource={data}
                 columns={columns}
                 rowKey="id"
                 loading={loading}
-                pagination={{ pageSize: 10 }}
-                scroll={{ x: 1800 }}
+                pagination={{ pageSize: 15 }}
+                scroll={{ x: 1400 }}
+                size="middle"
             />
 
-            <Modal
-                title={editingOrg ? '编辑组织' : '新增组织'}
-                open={modalVisible}
-                onOk={handleSubmit}
-                onCancel={() => setModalVisible(false)}
-                width={600}
-            >
-                <Form form={form} layout="vertical">
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item name="name" label="组织名称" rules={[{ required: true }]}>
-                                <Input />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item name="parent_id" label="上级机构">
-                                <Select allowClear placeholder="无（作为一级机构）">
-                                    {data.filter(org => org.id !== editingOrg?.id && org.level === 1).map(org => (
-                                        <Select.Option key={org.id} value={org.id}>{org.name}</Select.Option>
-                                    ))}
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item name="short_name" label="简称">
-                                <Input />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item name="contact_name" label="联系人">
-                                <Input />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item name="contact_phone" label="联系电话">
-                                <Input />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item name="contact_email" label="邮箱">
-                                <Input />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                    <Form.Item name="address" label="地址">
-                        <Input.TextArea rows={2} />
-                    </Form.Item>
-                    <Form.Item name="remark" label="备注">
-                        <Input.TextArea rows={2} />
-                    </Form.Item>
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item name="service_status" label="服务状态">
-                                <Select>
-                                    <Select.Option value="trial">试用</Select.Option>
-                                    <Select.Option value="active">正常</Select.Option>
-                                    <Select.Option value="suspended">暂停</Select.Option>
-                                    <Select.Option value="expired">已过期</Select.Option>
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item name="service_start" label="服务开始">
-                                <DatePicker style={{ width: '100%' }} />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item name="service_end" label="服务到期">
-                                <DatePicker style={{ width: '100%' }} />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item name="max_devices" label="最大设备数">
-                                <InputNumber min={1} style={{ width: '100%' }} />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item name="max_users" label="最大用户数">
-                                <InputNumber min={1} style={{ width: '100%' }} />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item name="max_shipments" label="月运单配额">
-                                <InputNumber min={1} style={{ width: '100%' }} />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                </Form>
-            </Modal>
+            <CreateCustomerModal
+                visible={createVisible}
+                parentOptions={parentOptions}
+                onClose={() => setCreateVisible(false)}
+                onSuccess={() => { setCreateVisible(false); fetchData(); }}
+            />
+
+            <RenewModal
+                visible={renewVisible}
+                org={renewOrg}
+                onClose={() => setRenewVisible(false)}
+                onSuccess={() => { setRenewVisible(false); fetchData(); }}
+            />
         </div>
     );
 };

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react'
-import { View, Text, ScrollView } from '@tarojs/components'
+import React, { useState } from 'react'
+import { View, Text, ScrollView, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { Button, SearchBar, Tag, Card, Toast } from '@nutui/nutui-react-taro'
+import { Button, Tag } from '@nutui/nutui-react-taro'
 import { ShipmentService } from '../../services/api'
 import './index.css'
 
@@ -10,12 +10,11 @@ function Index() {
   const [loading, setLoading] = useState(false)
   const [keyword, setKeyword] = useState('')
 
-  const fetchList = async () => {
+  const fetchList = async (searchVal?: string) => {
     setLoading(true)
     try {
-      // API supports params: { search: keyword }
-      const res: any = await ShipmentService.list({ search: keyword, page: 1, pageSize: 20 })
-      // res.data.data is the list if using standard response
+      const search = searchVal !== undefined ? searchVal : keyword
+      const res: any = await ShipmentService.list({ search, page: 1, pageSize: 20 })
       if (res.data && Array.isArray(res.data.data)) {
         setList(res.data.data)
       } else if (Array.isArray(res)) {
@@ -25,7 +24,6 @@ function Index() {
       }
     } catch (err) {
       console.error(err)
-      // Toast.fail('加载失败')
     } finally {
       setLoading(false)
     }
@@ -35,16 +33,57 @@ function Index() {
     fetchList()
   })
 
-  // Handle Scan
+  const handleSearch = () => {
+    fetchList(keyword)
+  }
+
+  const handleClear = () => {
+    setKeyword('')
+    fetchList('')
+  }
+
+  // 从二维码内容中提取设备号
+  const extractDeviceIdFromQR = (qrContent: string): string => {
+    const content = (qrContent || '').trim()
+    if (!content) return ''
+    if (content.startsWith('http://') || content.startsWith('https://')) {
+      try {
+        const url = new URL(content)
+        const paramKeys = ['imei', 'id', 'deviceId', 'device_id', 'sn', 'devid']
+        for (const key of paramKeys) {
+          const val = url.searchParams.get(key)
+          if (val) return val
+        }
+        const pathParts = url.pathname.split('/').filter(Boolean)
+        if (pathParts.length > 0) {
+          const lastPart = pathParts[pathParts.length - 1]
+          if (/^[A-Za-z0-9_-]{4,}$/.test(lastPart)) return lastPart
+        }
+      } catch (e) { /* ignore */ }
+    }
+    if (content.startsWith('{')) {
+      try {
+        const obj = JSON.parse(content)
+        return obj.deviceId || obj.device_id || obj.imei || obj.id || obj.sn || ''
+      } catch (e) { /* ignore */ }
+    }
+    return content
+  }
+
+  // 扫码 → 提取设备号 → 跳转创建运单页自动填充设备号
   const handleScan = async () => {
     try {
       const res = await Taro.scanCode({ scanType: ['barCode', 'qrCode'] })
-      const deviceId = res.result
-      // Ideally show modal to select shipment to bind, or bind to new.
-      // For MVP, lets just Toast the result or navigate to bind page.
-      Toast.show({ title: `扫码结果: ${deviceId}` })
-    } catch (err) {
-      console.error(err)
+      const deviceId = extractDeviceIdFromQR(res.result)
+      if (!deviceId) {
+        Taro.showToast({ title: '未识别到设备号', icon: 'none' })
+        return
+      }
+      Taro.navigateTo({ url: `/pages/shipment/create/index?deviceId=${encodeURIComponent(deviceId)}` })
+    } catch (err: any) {
+      if (err?.errMsg && !err.errMsg.includes('scanCode:fail cancel')) {
+        console.error('[Scan] 扫码失败:', err)
+      }
     }
   }
 
@@ -54,7 +93,6 @@ function Index() {
 
   const navigateToDetail = (id: string) => {
     Taro.navigateTo({ url: `/pages/shipment/detail/index?id=${id}` })
-    // Toast.show(`查看详情: ${id}`)
   }
 
   const STATUS_MAP: Record<string, string> = {
@@ -63,17 +101,25 @@ function Index() {
     'delivered': '已送达',
     'cancelled': '已取消'
   }
-
   return (
     <View className="index-page" style={{ height: '100vh', backgroundColor: '#f5f5f5' }}>
-      <View style={{ padding: '10px', backgroundColor: '#fff' }}>
-        <SearchBar
-          placeholder="搜索运单号/客户名称"
-          value={keyword}
-          onChange={(val) => setKeyword(val)}
-          onSearch={() => fetchList()}
-          onClear={() => { setKeyword(''); setTimeout(() => fetchList(), 100) }}
-        />
+      <View style={{ padding: '10px', backgroundColor: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <View style={{ flex: 1, backgroundColor: '#f5f5f5', borderRadius: '20px', padding: '6px 14px', display: 'flex', alignItems: 'center' }}>
+          <Input
+            placeholder="搜索运单号/客户名称"
+            value={keyword}
+            onInput={(e) => setKeyword(e.detail.value)}
+            onConfirm={() => handleSearch()}
+            confirmType="search"
+            style={{ flex: 1, fontSize: '14px', backgroundColor: 'transparent' }}
+          />
+          {keyword && (
+            <Text onClick={handleClear} style={{ color: '#999', fontSize: '18px', padding: '0 4px' }}>✕</Text>
+          )}
+        </View>
+        <Button type="primary" size="small" onClick={handleSearch} loading={loading}
+          style={{ borderRadius: '20px', padding: '0 16px', height: '36px', whiteSpace: 'nowrap' }}
+        >查询</Button>
       </View>
 
       <ScrollView scrollY style={{ height: 'calc(100vh - 120px)' }}>
@@ -115,7 +161,7 @@ function Index() {
         <Button type="info" onClick={navigateToCreate} style={{ width: '45%' }}>创建运单</Button>
         <Button type="primary" onClick={handleScan} style={{ width: '45%' }}>扫码绑定</Button>
       </View>
-      <Toast />
+
     </View>
   )
 }

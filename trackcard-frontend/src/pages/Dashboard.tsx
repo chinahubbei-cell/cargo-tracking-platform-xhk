@@ -497,7 +497,7 @@ const Dashboard: React.FC = () => {
                             </div>
                             <div>
                                 <div style={{ fontSize: 13, color: '#666' }}>关联设备</div>
-                                <div>{selectedAlert.device?.external_device_id || selectedAlert.device_id || '-'}</div>
+                                <div>{selectedAlert.device?.external_device_id || (selectedAlert.device_id ? selectedAlert.device_id.replace(/^GC-/, '') : '-')}</div>
                             </div>
                             <div>
                                 <div style={{ fontSize: 13, color: '#666' }}>发生时间</div>

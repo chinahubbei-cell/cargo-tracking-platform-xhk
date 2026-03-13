@@ -18,8 +18,7 @@ import Customers from './pages/Customers';
 import Rates from './pages/Rates';
 import Settings from './pages/Settings';
 import MagicLinkPage from './pages/MagicLinkPage'; // Phase 8: B端轻量化页面
-import DevicePurchase from './pages/DevicePurchase'; // Phase 10: 设备购买
-import DeviceRenewal from './pages/DeviceRenewal'; // Phase 10: 设备续费
+
 import { useAuthStore } from './store/authStore';
 
 import 'antd/dist/reset.css';
@@ -137,9 +136,6 @@ function App() {
               {/* 商务管理 */}
               <Route path="business-mgmt/rates" element={<Rates />} />
 
-              {/* 交易管理 */}
-              <Route path="trade/purchase" element={<DevicePurchase />} />
-              <Route path="trade/renewal" element={<DeviceRenewal />} />
 
               {/* 系统设置 */}
               <Route path="settings/system" element={<Settings />} />

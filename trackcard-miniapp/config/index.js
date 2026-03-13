@@ -25,6 +25,11 @@ const config = {
     prebundle: { enable: false }
   },
   mini: {
+    webpackChain(chain, webpack) {
+      chain.plugin('provider').use(webpack.ProvidePlugin, [{
+        process: 'process/browser'
+      }])
+    },
     postcss: {
       pxtransform: {
         enable: true,

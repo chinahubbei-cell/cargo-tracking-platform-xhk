@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Table, Tag, List, Typography } from 'antd';
+import { Card, Row, Col, Statistic, List, Typography, Tag, Button, Space } from 'antd';
 import {
     TeamOutlined,
-    ShoppingCartOutlined,
     HddOutlined,
     WarningOutlined,
     ClockCircleOutlined,
-    CheckCircleOutlined,
+    DollarOutlined,
 } from '@ant-design/icons';
 import { dashboardApi } from '../services/api';
+import RenewModal from '../components/RenewModal';
 import dayjs from 'dayjs';
 
 const { Title } = Typography;
@@ -20,24 +20,20 @@ interface DashboardData {
         expiring: number;
         expired: number;
     };
-    orders: {
-        pending: number;
-        processing: number;
-        completed: number;
-    };
     devices: {
         total: number;
         in_stock: number;
         allocated: number;
         activated: number;
     };
-    recent_orders: any[];
     expiring_orgs: any[];
 }
 
 const Dashboard: React.FC = () => {
     const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [renewVisible, setRenewVisible] = useState(false);
+    const [renewOrg, setRenewOrg] = useState<any>(null);
 
     useEffect(() => {
         fetchData();
@@ -54,38 +50,10 @@ const Dashboard: React.FC = () => {
         }
     };
 
-    const orderColumns = [
-        { title: '订单号', dataIndex: 'order_no', key: 'order_no', width: 180 },
-        { title: '客户', dataIndex: 'org_name', key: 'org_name' },
-        {
-            title: '状态',
-            dataIndex: 'order_status',
-            key: 'order_status',
-            render: (status: string) => {
-                const colors: Record<string, string> = {
-                    pending: 'orange',
-                    confirmed: 'blue',
-                    shipped: 'cyan',
-                    completed: 'green',
-                    cancelled: 'red',
-                };
-                const labels: Record<string, string> = {
-                    pending: '待确认',
-                    confirmed: '已确认',
-                    shipped: '已发货',
-                    completed: '已完成',
-                    cancelled: '已取消',
-                };
-                return <Tag color={colors[status]}>{labels[status] || status}</Tag>;
-            },
-        },
-        {
-            title: '时间',
-            dataIndex: 'created_at',
-            key: 'created_at',
-            render: (t: string) => dayjs(t).format('MM-DD HH:mm'),
-        },
-    ];
+    const openRenew = (org: any) => {
+        setRenewOrg(org);
+        setRenewVisible(true);
+    };
 
     return (
         <div>
@@ -93,17 +61,17 @@ const Dashboard: React.FC = () => {
 
             {/* 统计卡片 */}
             <Row gutter={[16, 16]}>
-                <Col xs={24} sm={12} lg={6}>
+                <Col xs={24} sm={12} lg={8}>
                     <Card>
                         <Statistic
-                            title="活跃组织"
+                            title="活跃账号"
                             value={data?.organizations.active || 0}
                             prefix={<TeamOutlined style={{ color: '#52c41a' }} />}
                             suffix={`/ ${data?.organizations.total || 0}`}
                         />
                     </Card>
                 </Col>
-                <Col xs={24} sm={12} lg={6}>
+                <Col xs={24} sm={12} lg={8}>
                     <Card>
                         <Statistic
                             title="即将到期"
@@ -113,16 +81,7 @@ const Dashboard: React.FC = () => {
                         />
                     </Card>
                 </Col>
-                <Col xs={24} sm={12} lg={6}>
-                    <Card>
-                        <Statistic
-                            title="待处理订单"
-                            value={(data?.orders.pending || 0) + (data?.orders.processing || 0)}
-                            prefix={<ShoppingCartOutlined style={{ color: '#1890ff' }} />}
-                        />
-                    </Card>
-                </Col>
-                <Col xs={24} sm={12} lg={6}>
+                <Col xs={24} sm={12} lg={8}>
                     <Card>
                         <Statistic
                             title="设备库存"
@@ -135,49 +94,51 @@ const Dashboard: React.FC = () => {
             </Row>
 
             <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-                {/* 最近订单 */}
-                <Col xs={24} lg={14}>
-                    <Card title="最近订单" size="small">
-                        <Table
-                            dataSource={data?.recent_orders || []}
-                            columns={orderColumns}
-                            rowKey="id"
-                            size="small"
-                            pagination={false}
-                            loading={loading}
-                        />
-                    </Card>
-                </Col>
-
                 {/* 即将到期 */}
-                <Col xs={24} lg={10}>
+                <Col xs={24} lg={12}>
                     <Card
-                        title={<span><ClockCircleOutlined /> 即将到期组织</span>}
+                        title={<span><ClockCircleOutlined /> 即将到期账号</span>}
                         size="small"
                     >
                         <List
                             dataSource={data?.expiring_orgs || []}
                             loading={loading}
                             renderItem={(org: any) => (
-                                <List.Item>
+                                <List.Item
+                                    actions={[
+                                        <Button
+                                            key="renew"
+                                            type="primary"
+                                            size="small"
+                                            icon={<DollarOutlined />}
+                                            onClick={() => openRenew(org)}
+                                        >
+                                            快速续费
+                                        </Button>
+                                    ]}
+                                >
                                     <List.Item.Meta
                                         title={org.name}
-                                        description={`到期时间: ${dayjs(org.service_end).format('YYYY-MM-DD')}`}
+                                        description={
+                                            <Space>
+                                                <span>到期: {dayjs(org.service_end).format('YYYY-MM-DD')}</span>
+                                                {org.contact_name && <span>· {org.contact_name}</span>}
+                                                {org.contact_phone && <span>· {org.contact_phone}</span>}
+                                            </Space>
+                                        }
                                     />
                                     <Tag color="warning">
                                         剩余 {dayjs(org.service_end).diff(dayjs(), 'day')} 天
                                     </Tag>
                                 </List.Item>
                             )}
-                            locale={{ emptyText: '暂无即将到期的组织' }}
+                            locale={{ emptyText: '暂无即将到期的账号' }}
                         />
                     </Card>
                 </Col>
-            </Row>
 
-            {/* 设备统计 */}
-            <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-                <Col span={24}>
+                {/* 设备统计 */}
+                <Col xs={24} lg={12}>
                     <Card title="设备统计">
                         <Row gutter={16}>
                             <Col xs={12} sm={6}>
@@ -211,6 +172,13 @@ const Dashboard: React.FC = () => {
                     </Card>
                 </Col>
             </Row>
+
+            <RenewModal
+                visible={renewVisible}
+                org={renewOrg}
+                onClose={() => setRenewVisible(false)}
+                onSuccess={() => { setRenewVisible(false); fetchData(); }}
+            />
         </div>
     );
 };

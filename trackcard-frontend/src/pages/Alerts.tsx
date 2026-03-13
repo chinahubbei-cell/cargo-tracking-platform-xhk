@@ -106,7 +106,7 @@ const AlertDetail: React.FC<AlertDetailProps> = ({ alert }) => (
             </div>
             <div className="alert-detail-item">
                 <div className="alert-detail-label">关联设备</div>
-                <div>{alert.device?.external_device_id || alert.device_id || '-'}</div>
+                <div>{alert.device?.external_device_id || (alert.device_id ? alert.device_id.replace(/^GC-/, '') : '-')}</div>
             </div>
             <div className="alert-detail-item">
                 <div className="alert-detail-label">创建时间</div>
@@ -184,7 +184,7 @@ const Alerts: React.FC = () => {
             '预警类型': TYPE_LABELS[alert.type] || alert.type,
             '严重程度': SEVERITY_LABELS[alert.severity] || alert.severity,
             '状态': alert.status === 'resolved' ? '已处理' : '待处理',
-            '关联设备': alert.device?.external_device_id || alert.device_id || '-',
+            '关联设备': alert.device?.external_device_id || (alert.device_id ? alert.device_id.replace(/^GC-/, '') : '-'),
             '预警内容': alert.message || '-',
             '创建时间': formatDateTime(alert.created_at),
             '处理时间': formatDateTime(alert.resolved_at),
@@ -382,7 +382,7 @@ const Alerts: React.FC = () => {
             key: 'device_id',
             width: 160,
             render: (_: string | undefined, record: Alert) =>
-                record.device?.external_device_id || record.device_id || '-',
+                record.device?.external_device_id || (record.device_id ? record.device_id.replace(/^GC-/, '') : '-'),
         },
         {
             title: '创建时间',

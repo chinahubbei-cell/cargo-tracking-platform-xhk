@@ -140,8 +140,6 @@ const Login: React.FC = () => {
                         },
                     ]}
                 />
-
-                <div style={{ textAlign: 'center', color: '#bfbfbf', fontSize: 12 }}>默认账号: admin / admin123</div>
             </Card>
 
             <Modal title="选择登录机构" open={orgModal} onOk={confirmOrg} onCancel={() => setOrgModal(false)} confirmLoading={loading}>

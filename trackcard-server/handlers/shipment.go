@@ -257,9 +257,37 @@ func (h *ShipmentHandler) Create(c *gin.Context) {
 		}
 	}
 
-	// 处理空字符串设备ID，防止外键约束错误
+	// 处理设备ID: 查找已有设备或自动创建
 	if req.DeviceID != nil && *req.DeviceID == "" {
 		req.DeviceID = nil
+	}
+	if req.DeviceID != nil && *req.DeviceID != "" {
+		scannedID := *req.DeviceID
+		var device models.Device
+		err := h.db.Where("id = ?", scannedID).First(&device).Error
+		if err != nil {
+			err = h.db.Where("external_device_id = ?", scannedID).First(&device).Error
+		}
+		if err != nil {
+			// 设备不存在，以扫码ID作为主键自动创建
+			log.Printf("[CreateShipment] 设备 %s 不存在，自动创建", scannedID)
+			device = models.Device{
+				ID:       scannedID, // 直接使用扫码ID作为设备主键
+				Name:     scannedID,
+				Type:     "container",
+				Model:    "X6",
+				Provider: "kuaihuoyun",
+				Status:   "online",
+				OrgID:    shipmentOrgID,
+			}
+			if createErr := h.db.Create(&device).Error; createErr != nil {
+				log.Printf("[CreateShipment] 自动创建设备失败: %v", createErr)
+				utils.InternalError(c, "创建设备失败: "+createErr.Error())
+				return
+			}
+			log.Printf("[CreateShipment] 自动创建设备成功, ID=%s", device.ID)
+		}
+		req.DeviceID = &device.ID
 	}
 
 	shipment := models.Shipment{
@@ -470,13 +498,45 @@ func (h *ShipmentHandler) Update(c *gin.Context) {
 		if *req.DeviceID == "" {
 			updates["device_id"] = nil
 		} else {
-			updates["device_id"] = *req.DeviceID
+			// 扫码绑定时，先按 ID 或 external_device_id 查找设备
+			scannedID := *req.DeviceID
+			var device models.Device
+			err := h.db.Where("id = ?", scannedID).First(&device).Error
+			if err != nil {
+				// 按 external_device_id 查找
+				err = h.db.Where("external_device_id = ?", scannedID).First(&device).Error
+			}
+			if err != nil {
+				// 设备不存在，以扫码ID作为主键自动创建
+				log.Printf("[BindDevice] 设备 %s 不存在，自动创建", scannedID)
+				device = models.Device{
+					ID:       scannedID, // 直接使用扫码ID作为设备主键
+					Name:     scannedID,
+					Type:     "container",
+					Model:    "X6",
+					Provider: "kuaihuoyun",
+					Status:   "online",
+					OrgID:    shipment.OrgID,
+				}
+				if createErr := h.db.Create(&device).Error; createErr != nil {
+					log.Printf("[BindDevice] 自动创建设备失败: %v", createErr)
+					utils.InternalError(c, "绑定设备失败: "+createErr.Error())
+					return
+				}
+				log.Printf("[BindDevice] 自动创建设备成功, ID=%s", device.ID)
+			}
+			// 使用设备ID（扫码号或已有设备ID）
+			updates["device_id"] = device.ID
 		}
 
 		// 只有当设置为非空且发生变化时才更新绑定时间
-		if *req.DeviceID != "" && (shipment.DeviceID == nil || *shipment.DeviceID != *req.DeviceID) {
-			now := time.Now()
-			updates["device_bound_at"] = now
+		deviceIDVal, hasDeviceID := updates["device_id"]
+		if hasDeviceID && deviceIDVal != nil {
+			newDeviceID := fmt.Sprintf("%v", deviceIDVal)
+			if shipment.DeviceID == nil || *shipment.DeviceID != newDeviceID {
+				now := time.Now()
+				updates["device_bound_at"] = now
+			}
 		}
 	}
 	if req.TransportType != nil {

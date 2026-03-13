@@ -3,14 +3,12 @@ import { Layout, Menu, Dropdown, Avatar, Button } from 'antd';
 import {
     DashboardOutlined,
     TeamOutlined,
-    ShoppingCartOutlined,
     HddOutlined,
     UserOutlined,
     LogoutOutlined,
     MenuFoldOutlined,
     MenuUnfoldOutlined,
     AuditOutlined,
-    UnorderedListOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -32,12 +30,7 @@ const MainLayout: React.FC = () => {
         {
             key: '/orgs',
             icon: <TeamOutlined />,
-            label: '组织管理',
-        },
-        {
-            key: '/orders',
-            icon: <ShoppingCartOutlined />,
-            label: '订单管理',
+            label: '客户管理',
         },
         {
             key: '/devices',

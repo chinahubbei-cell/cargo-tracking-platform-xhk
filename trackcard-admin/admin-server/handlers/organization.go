@@ -125,16 +125,24 @@ func (h *OrganizationHandler) List(c *gin.Context) {
 	})
 }
 
-// CreateOrgRequest 创建组织请求
 type CreateOrgRequest struct {
 	Name         string `json:"name" binding:"required"`
 	ParentID     string `json:"parent_id"`
 	ShortName    string `json:"short_name"`
+	CompanyName  string `json:"company_name"`
+	CreditCode   string `json:"credit_code"`
 	ContactName  string `json:"contact_name"`
 	ContactPhone string `json:"contact_phone"`
 	ContactEmail string `json:"contact_email"`
 	Address      string `json:"address"`
 	Remark       string `json:"remark"`
+	// 服务配置（仅主账号使用）
+	ServiceStatus string `json:"service_status"`
+	ServiceStart  string `json:"service_start"`
+	ServiceEnd    string `json:"service_end"`
+	MaxDevices    int    `json:"max_devices"`
+	MaxUsers      int    `json:"max_users"`
+	MaxShipments  int    `json:"max_shipments"`
 }
 
 // Create 创建组织
@@ -162,19 +170,51 @@ func (h *OrganizationHandler) Create(c *gin.Context) {
 	}
 
 	org := models.Organization{
-		Name:          req.Name,
-		ParentID:      req.ParentID,
-		Level:         level,
-		ShortName:     req.ShortName,
-		ContactName:   req.ContactName,
-		ContactPhone:  req.ContactPhone,
-		ContactEmail:  req.ContactEmail,
-		Address:       req.Address,
-		Remark:        req.Remark,
-		ServiceStatus: "trial",
-		MaxDevices:    10,
-		MaxUsers:      5,
-		MaxShipments:  100,
+		Name:         req.Name,
+		ParentID:     req.ParentID,
+		Level:        level,
+		ShortName:    req.ShortName,
+		CompanyName:  req.CompanyName,
+		CreditCode:   req.CreditCode,
+		ContactName:  req.ContactName,
+		ContactPhone: req.ContactPhone,
+		ContactEmail: req.ContactEmail,
+		Address:      req.Address,
+		Remark:       req.Remark,
+	}
+
+	// 主账号设置服务配置，二级账号继承主账号
+	if req.ParentID == "" {
+		org.ServiceStatus = "trial"
+		if req.ServiceStatus != "" {
+			org.ServiceStatus = req.ServiceStatus
+		}
+		org.MaxDevices = 10
+		if req.MaxDevices > 0 {
+			org.MaxDevices = req.MaxDevices
+		}
+		org.MaxUsers = 5
+		if req.MaxUsers > 0 {
+			org.MaxUsers = req.MaxUsers
+		}
+		org.MaxShipments = 100
+		if req.MaxShipments > 0 {
+			org.MaxShipments = req.MaxShipments
+		}
+		if req.ServiceStart != "" {
+			if t, err := time.Parse(time.RFC3339, req.ServiceStart); err == nil {
+				org.ServiceStart = &t
+			} else if t, err := time.Parse(time.RFC3339Nano, req.ServiceStart); err == nil {
+				org.ServiceStart = &t
+			}
+		}
+		if req.ServiceEnd != "" {
+			if t, err := time.Parse(time.RFC3339, req.ServiceEnd); err == nil {
+				org.ServiceEnd = &t
+			} else if t, err := time.Parse(time.RFC3339Nano, req.ServiceEnd); err == nil {
+				org.ServiceEnd = &t
+			}
+		}
 	}
 
 	if err := h.db.Create(&org).Error; err != nil {
@@ -207,11 +247,12 @@ func (h *OrganizationHandler) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": org})
 }
 
-// UpdateOrgRequest 更新组织请求（白名单字段）
 type UpdateOrgRequest struct {
 	Name          *string `json:"name"`
 	ParentID      *string `json:"parent_id"`
 	ShortName     *string `json:"short_name"`
+	CompanyName   *string `json:"company_name"`
+	CreditCode    *string `json:"credit_code"`
 	ContactName   *string `json:"contact_name"`
 	ContactPhone  *string `json:"contact_phone"`
 	ContactEmail  *string `json:"contact_email"`
@@ -265,6 +306,12 @@ func (h *OrganizationHandler) Update(c *gin.Context) {
 	}
 	if req.ShortName != nil {
 		updates["short_name"] = *req.ShortName
+	}
+	if req.CompanyName != nil {
+		updates["company_name"] = *req.CompanyName
+	}
+	if req.CreditCode != nil {
+		updates["credit_code"] = *req.CreditCode
 	}
 	if req.ContactName != nil {
 		updates["contact_name"] = *req.ContactName
@@ -341,14 +388,6 @@ func (h *OrganizationHandler) Delete(c *gin.Context) {
 	h.db.Model(&models.HardwareDevice{}).Where("org_id = ?", id).Count(&deviceCount)
 	if deviceCount > 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "code": "HAS_DEVICES", "message": "请先解绑该组织下的设备"})
-		return
-	}
-
-	// 检查是否有关联订单
-	var orderCount int64
-	h.db.Model(&models.HardwareOrder{}).Where("org_id = ?", id).Count(&orderCount)
-	if orderCount > 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "code": "HAS_ORDERS", "message": "该组织存在关联订单，无法删除"})
 		return
 	}
 
@@ -509,4 +548,78 @@ func (h *OrganizationHandler) GetExpiring(c *gin.Context) {
 		expireDate, "active").Order("service_end ASC").Limit(50).Find(&orgs)
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": orgs})
+}
+
+// GetRenewals 获取续费记录
+func (h *OrganizationHandler) GetRenewals(c *gin.Context) {
+	id := c.Param("id")
+
+	var renewals []models.ServiceRenewal
+	h.db.Where("org_id = ?", id).Order("created_at DESC").Find(&renewals)
+
+	// 填充操作人名称
+	type RenewalWithAdmin struct {
+		models.ServiceRenewal
+		CreatedByName string `json:"created_by_name"`
+	}
+	var result []RenewalWithAdmin
+	for _, r := range renewals {
+		item := RenewalWithAdmin{ServiceRenewal: r}
+		if r.CreatedBy != "" {
+			var admin models.AdminUser
+			if h.db.First(&admin, "id = ?", r.CreatedBy).Error == nil {
+				item.CreatedByName = admin.Name
+			}
+		}
+		result = append(result, item)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": result})
+}
+
+// GetDevices 获取客户关联的设备
+func (h *OrganizationHandler) GetDevices(c *gin.Context) {
+	id := c.Param("id")
+
+	var devices []models.HardwareDevice
+	h.db.Where("org_id = ?", id).Order("created_at DESC").Find(&devices)
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": devices})
+}
+
+// GetStats 获取客户配额使用统计
+func (h *OrganizationHandler) GetStats(c *gin.Context) {
+	id := c.Param("id")
+
+	var org models.Organization
+	if err := h.db.First(&org, "id = ?", id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "客户不存在"})
+		return
+	}
+
+	// 设备数
+	var deviceCount int64
+	h.db.Model(&models.HardwareDevice{}).Where("org_id = ?", id).Count(&deviceCount)
+
+	// 用户数 - 从主系统的 user_organizations 表统计
+	var userCount int64
+	h.db.Table("user_organizations").Where("organization_id = ?", id).Count(&userCount)
+
+	// 本月运单数 - 从主系统的 shipments 表统计
+	now := time.Now()
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	var shipmentCount int64
+	h.db.Table("shipments").Where("org_id = ? AND created_at >= ? AND deleted_at IS NULL", id, monthStart).Count(&shipmentCount)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"device_count":   deviceCount,
+			"max_devices":    org.MaxDevices,
+			"user_count":     userCount,
+			"max_users":      org.MaxUsers,
+			"shipment_count": shipmentCount,
+			"max_shipments":  org.MaxShipments,
+		},
+	})
 }
